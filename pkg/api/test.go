@@ -111,19 +111,21 @@ func (c *Controller) testSend(request *restful.Request, response *restful.Respon
 			Markdown: text,
 		}
 	}
+	// 记录调用源数据：原始测试发送请求体（含 channel/template/fields/labels），便于溯源与模板调试
+	payload.Raw = string(raw)
 
 	start := time.Now()
 	if err := sender.Send(payload); err != nil {
 		errmsg := fmt.Sprintf("Err: test send failed, %v", err)
 		c.log(errmsg)
 		c.logger.Warn("test send failed", "channel", req.Channel, "duration_ms", time.Since(start).Milliseconds(), "err", err.Error())
-		c.recordTestSend(req.Channel, "failure", err.Error(), time.Since(start))
+		c.recordTestSend(req.Channel, "failure", err.Error(), payload, time.Since(start))
 		response.WriteHeaderAndJson(http.StatusInternalServerError, errmsg, restful.MIME_JSON)
 		return
 	}
 
 	c.logger.Info("test send succeeded", "channel", req.Channel, "duration_ms", time.Since(start).Milliseconds())
-	c.recordTestSend(req.Channel, "success", "", time.Since(start))
+	c.recordTestSend(req.Channel, "success", "", payload, time.Since(start))
 	response.WriteHeaderAndJson(http.StatusOK, map[string]string{"status": "ok"}, restful.MIME_JSON)
 }
 
@@ -210,8 +212,9 @@ func (c *Controller) buildAlertMessageFromFields(req *testSendRequest) *promMode
 	return msg
 }
 
-// recordTestSend 将测试发送结果写入 sendstore（记录真实渠道名，Kind 标记为 "test" 与真实发送区分）。
-func (c *Controller) recordTestSend(channel string, status string, errMsg string, duration time.Duration) {
+// recordTestSend 将测试发送结果写入 sendstore（记录真实渠道名，Kind 标记为 "test" 与真实发送区分），
+// 并附带发送内容快照（原始请求体 + 渲染后的 title/text/markdown），便于溯源与模板调试。
+func (c *Controller) recordTestSend(channel string, status string, errMsg string, payload *models.Payload, duration time.Duration) {
 	if c.sendStore == nil {
 		return
 	}
@@ -222,6 +225,12 @@ func (c *Controller) recordTestSend(channel string, status string, errMsg string
 		Status:    status,
 		Error:     errMsg,
 		Duration:  duration.Milliseconds(),
+	}
+	if payload != nil {
+		rec.Raw = payload.Raw
+		rec.Title = payload.Title
+		rec.Text = payload.Text
+		rec.Markdown = payload.Markdown
 	}
 	if err := c.sendStore.Append(rec); err != nil {
 		c.logger.Warn("record test send failed", "err", err.Error())
