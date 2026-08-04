@@ -10,6 +10,7 @@ import (
 
 	restful "github.com/emicklei/go-restful/v3"
 	promModels "github.com/kimicao1010/alert-webhook/pkg/models"
+	"github.com/kimicao1010/alert-webhook/pkg/version"
 	"github.com/kimicao1010/alert-webhook/web/static"
 )
 
@@ -32,6 +33,7 @@ func (c *Controller) InstallUI(container *restful.Container) {
 
 	ws.Route(ws.GET("/sends").To(c.querySends))
 	ws.Route(ws.POST("/test-send").To(c.testSend))
+	ws.Route(ws.GET("/info").To(c.serverInfo))
 
 	container.Add(ws)
 
@@ -308,4 +310,14 @@ func (c *Controller) querySends(request *restful.Request, response *restful.Resp
 // errMsg 构造 JSON 错误响应（供 test.go 等复用）。
 func errMsg(msg string) string {
 	return fmt.Sprintf("Err: %s", msg)
+}
+
+// serverInfo 返回服务端运行信息（实际数据目录、版本），供 UI 侧栏展示。
+// 该端点不要求认证：dataDir/版本属非敏感运行信息，且需保证 UI 在未配置 token 时也能展示。
+func (c *Controller) serverInfo(request *restful.Request, response *restful.Response) {
+	response.WriteHeaderAndJson(http.StatusOK, map[string]string{
+		"dataDir": c.dataDir,
+		"version": version.Version,
+		"commit":  version.Commit,
+	}, restful.MIME_JSON)
 }

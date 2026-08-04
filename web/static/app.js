@@ -159,13 +159,16 @@ function renderChannelForm() {
   const form = $('chan-form');
   const ch = state.curChannel;
   const meta = CHANNEL_META[ch];
-  $('chan-form-title').textContent = (meta ? meta.name : ch) + ' · 配置';
-  $('chan-form-hint').textContent = 'channel: ' + (ch || '—');
 
   if (!ch) {
+    $('chan-form-title').textContent = '当前无配置';
+    $('chan-form-hint').textContent = 'channel: —';
     form.innerHTML = '<div class="empty"><div class="big">←</div>从左侧选择渠道，或点击"新增渠道"</div>';
     return;
   }
+  $('chan-form-title').textContent = (meta ? meta.name : ch) + ' · 配置';
+  $('chan-form-hint').textContent = 'channel: ' + ch;
+
   if (!meta) {
     form.innerHTML = `<div class="empty">未知渠道 ${esc(ch)}</div>`;
     return;
@@ -242,17 +245,49 @@ async function deleteChannel(ch) {
 }
 
 $('btn-add-channel').addEventListener('click', () => {
+  openAddChannelModal();
+});
+
+/* ===== 新增渠道模态框（替代原生 prompt，匹配深色主题） ===== */
+
+function openAddChannelModal() {
   const keys = Object.keys(CHANNEL_META).filter((k) => !state.channels.includes(k));
   if (keys.length === 0) { toast('所有渠道均已配置', true); return; }
-  const name = prompt('新增渠道：输入渠道名\n可用：' + keys.join(', '), keys[0]);
-  if (name && CHANNEL_META[name]) {
+  const mask = document.createElement('div');
+  mask.className = 'modal-mask';
+  mask.innerHTML = `
+    <div class="modal">
+      <div class="modal-head"><h3>新增渠道</h3><span class="modal-x">✕</span></div>
+      <div class="modal-body">
+        <p class="modal-hint">选择要配置的渠道类型：</p>
+        <div class="modal-options">
+          ${keys.map((k) => {
+            const m = CHANNEL_META[k];
+            return `<div class="modal-opt" data-channel="${esc(k)}">
+              <div class="opt-name">${esc(m.name)}<span class="opt-key">${esc(k)}</span></div>
+              <div class="opt-desc">${esc(m.desc)}</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" id="modal-cancel">取消</button>
+      </div>
+    </div>`;
+  document.body.appendChild(mask);
+
+  const close = () => mask.remove();
+  mask.addEventListener('click', (e) => { if (e.target === mask) close(); });
+  mask.querySelector('.modal-x').addEventListener('click', close);
+  mask.querySelector('#modal-cancel').addEventListener('click', close);
+  mask.querySelectorAll('.modal-opt').forEach((el) => el.addEventListener('click', () => {
+    const name = el.dataset.channel;
+    close();
     state.curChannel = name;
     renderChannelList();
     renderChannelForm();
-  } else if (name) {
-    toast('未知渠道类型', true);
-  }
-});
+  }));
+}
 
 /* ================= 模板编辑（所见即所得） ================= */
 
@@ -586,6 +621,15 @@ $('token-input').addEventListener('change', () => {
 fetch('/healthz').then((r) => {
   $('health-dot').style.background = r.ok ? 'var(--ok)' : 'var(--err)';
 }).catch(() => { $('health-dot').style.background = 'var(--err)'; });
+
+// 服务端信息（实际数据目录 / 版本）
+fetch('/api/info').then((r) => (r.ok ? r.json() : null)).then((info) => {
+  if (info && info.dataDir) {
+    const el = $('data-dir-val');
+    el.textContent = info.dataDir;
+    el.title = info.dataDir;
+  }
+}).catch(() => {});
 
 // 启动
 (async () => {

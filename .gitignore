@@ -46,3 +46,6 @@ deploy/charts/alertmanager-webhook-adapter-*.tgz
 .hermes
 
 .tool-versions
+
+# 本地测试数据目录
+tempdata/

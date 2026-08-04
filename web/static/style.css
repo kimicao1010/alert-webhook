@@ -167,4 +167,21 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:13p
 .toast{position:fixed;bottom:24px;right:24px;background:var(--ok);color:#0b0e14;padding:10px 16px;border-radius:var(--r);font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.4);display:none;z-index:99}
 .toast.err{background:var(--err);color:#fff}
 
+/* ===== 模态框（新增渠道） ===== */
+.modal-mask{position:fixed;inset:0;background:rgba(5,7,11,.62);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:200}
+.modal{width:420px;max-width:calc(100vw - 48px);background:var(--panel);border:1px solid var(--border);border-radius:12px;box-shadow:0 16px 48px rgba(0,0,0,.5);overflow:hidden}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)}
+.modal-head h3{font-size:14px;font-weight:650}
+.modal-x{color:var(--faint);cursor:pointer;font-size:13px;padding:2px 6px;border-radius:6px}
+.modal-x:hover{color:var(--ink);background:var(--panel2)}
+.modal-body{padding:16px 18px}
+.modal-hint{font-size:12px;color:var(--muted);margin-bottom:12px}
+.modal-options{display:flex;flex-direction:column;gap:8px}
+.modal-opt{padding:11px 13px;border:1px solid var(--border);border-radius:var(--r);background:var(--panel2);cursor:pointer;transition:border-color .15s,background .15s}
+.modal-opt:hover{border-color:var(--accent);background:var(--accent-bg)}
+.modal-opt .opt-name{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+.modal-opt .opt-key{font-family:var(--mono);font-size:10.5px;color:var(--faint);font-weight:400;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:1px 7px}
+.modal-opt .opt-desc{font-size:11px;color:var(--faint);margin-top:3px}
+.modal-foot{display:flex;justify-content:flex-end;padding:12px 18px;border-top:1px solid var(--border)}
+
 @media(max-width:900px){ .app{grid-template-columns:1fr} .sidebar{display:none} .channels,.tmpl,.test{grid-template-columns:1fr} }
