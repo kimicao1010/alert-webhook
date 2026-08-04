@@ -101,6 +101,15 @@ function esc(s) {
   }[c]));
 }
 
+// fmtRaw：原始调用记录若为合法 JSON 则美化缩进，否则原样返回。
+function fmtRaw(raw) {
+  try {
+    return JSON.stringify(JSON.parse(raw), null, 2);
+  } catch (e) {
+    return raw;
+  }
+}
+
 /* ================= Tab 切换 ================= */
 
 function switchTab(tab) {
@@ -455,6 +464,10 @@ function renderSends() {
           </div>
           <div class="detail-block"><div class="db-t">告警数</div><pre>${r.alertCount != null ? r.alertCount : '—'}</pre></div>
           ${r.error ? `<div class="detail-block"><div class="db-t">错误信息</div><pre class="err">${esc(r.error)}</pre></div>` : ''}
+          ${r.title ? `<div class="detail-block"><div class="db-t">标题 (title)</div><pre>${esc(r.title)}</pre></div>` : ''}
+          ${r.text ? `<div class="detail-block"><div class="db-t">文本 (text)</div><pre>${esc(r.text)}</pre></div>` : ''}
+          ${r.markdown ? `<div class="detail-block"><div class="db-t">Markdown</div><pre>${esc(r.markdown)}</pre></div>` : ''}
+          ${r.raw ? `<div class="detail-block"><div class="db-t">原始调用记录 (raw)</div><pre class="raw-json">${esc(fmtRaw(r.raw))}</pre></div>` : ''}
         </div></td>
       </tr>`;
     }).join('');
