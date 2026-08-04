@@ -11,6 +11,7 @@ import (
 	restful "github.com/emicklei/go-restful/v3"
 	promModels "github.com/kimicao1010/alert-webhook/pkg/models"
 	"github.com/kimicao1010/alert-webhook/pkg/senders"
+	models "github.com/kimicao1010/alert-webhook/pkg/webhook-adapter/models"
 	"github.com/kimicao1010/alert-webhook/pkg/webhook-adapter/store"
 	"github.com/kimicao1010/alert-webhook/pkg/webhook-adapter/utils"
 	"github.com/kr/pretty"
@@ -220,18 +221,19 @@ func (c *Controller) send(request *restful.Request, response *restful.Response) 
 	if sendErr != nil {
 		errmsg := fmt.Sprintf("Err: sender send failed, %v", sendErr)
 		c.log(errmsg)
-		c.recordSend(channelType, "failure", sendErr.Error(), promMsg, time.Since(sendStart))
+		c.recordSend(channelType, "failure", sendErr.Error(), promMsg, payload, time.Since(sendStart))
 		response.WriteHeaderAndJson(http.StatusInternalServerError, errmsg, restful.MIME_JSON)
 		return
 	}
 
-	c.recordSend(channelType, "success", "", promMsg, time.Since(sendStart))
+	c.recordSend(channelType, "success", "", promMsg, payload, time.Since(sendStart))
 	c.logf("Send succeed: %s\n", request.Request.URL.String())
 	response.WriteHeader(http.StatusNoContent)
 }
 
-// recordSend 将发送结果写入 sendstore（成功/失败均记录）。
-func (c *Controller) recordSend(channel string, status string, errMsg string, msg *promModels.AlertmanagerWebhookMessage, duration time.Duration) {
+// recordSend 将发送结果写入 sendstore（成功/失败均记录），
+// 并附带发送内容快照（原始调用体 + 渲染后的 title/text/markdown），便于溯源与模板调试。
+func (c *Controller) recordSend(channel string, status string, errMsg string, msg *promModels.AlertmanagerWebhookMessage, payload *models.Payload, duration time.Duration) {
 	if c.sendStore == nil {
 		return
 	}
@@ -243,6 +245,12 @@ func (c *Controller) recordSend(channel string, status string, errMsg string, ms
 		Error:      errMsg,
 		AlertCount: len(msg.Alerts),
 		Duration:   duration.Milliseconds(),
+	}
+	if payload != nil {
+		rec.Raw = payload.Raw
+		rec.Title = payload.Title
+		rec.Text = payload.Text
+		rec.Markdown = payload.Markdown
 	}
 	if err := c.sendStore.Append(rec); err != nil {
 		c.logger.Warn("record send failed", "err", err.Error())
