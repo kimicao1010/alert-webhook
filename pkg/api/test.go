@@ -84,6 +84,8 @@ func (c *Controller) testSend(request *restful.Request, response *restful.Respon
 	if err != nil {
 		errmsg := fmt.Sprintf("Err: create sender failed, %v", err)
 		c.log(errmsg)
+		// sender 构造失败（如无凭据）也落记录，保留原始请求体便于溯源
+		c.recordTestSend(req.Channel, "failure", err.Error(), &models.Payload{Raw: string(raw)}, 0)
 		response.WriteHeaderAndJson(http.StatusBadRequest, errmsg, restful.MIME_JSON)
 		return
 	}
