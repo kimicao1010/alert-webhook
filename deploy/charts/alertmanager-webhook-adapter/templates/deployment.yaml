@@ -1,0 +1,80 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "awa.fullname" . }}
+  namespace: {{ include "awa.namespace" . }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alertmanager-webhook-adapter
+  template:
+    metadata:
+      labels:
+        app: alertmanager-webhook-adapter
+    spec:
+      containers:
+      - name: webhook
+        image: "{{ .Values.image.name }}:{{ .Values.image.tag }}"
+        command:
+        - /alertmanager-webhook-adapter
+        - --listen-address=:8090
+        - --signature={{ .Values.signature }}
+        - --tmpl-lang={{ .Values.lang | default "en" }}
+        - --data-dir={{ .Values.dataDir | default "/data" }}
+        - --web-enabled={{ .Values.webEnabled | default true }}
+        {{- if .Values.authToken }}
+        - --auth-token={{ .Values.authToken }}
+        {{- end }}
+        env:
+        - name: TZ
+          value: {{ .Values.timezone }}
+        {{- if .Values.persistence.enabled }}
+        volumeMounts:
+        - name: data
+          mountPath: {{ .Values.dataDir | default "/data" }}
+        {{- end }}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8090
+          initialDelaySeconds: 10
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8090
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            memory: 50Mi
+            cpu: 100m
+          limits:
+            memory: 250Mi
+            cpu: 500m
+      {{- if .Values.persistence.enabled }}
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: {{ include "awa.fullname" . }}-data
+      {{- end }}
+      restartPolicy: Always
+{{- if .Values.persistence.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "awa.fullname" . }}-data
+  namespace: {{ include "awa.namespace" . }}
+spec:
+  accessModes:
+  - ReadWriteOnce
+  {{- if .Values.persistence.storageClass }}
+  storageClassName: {{ .Values.persistence.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size | default "1Gi" }}
+{{- end }}

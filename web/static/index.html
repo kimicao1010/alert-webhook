@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Alertmanager Webhook 控制台</title>
+<link rel="stylesheet" href="/ui/static/style.css" />
+</head>
+<body>
+<div class="app">
+  <!-- ===== 侧边栏 ===== -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo">A</div>
+      <div>
+        <div class="name">Webhook 控制台</div>
+        <div class="sub">alertmanager-adapter</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <div class="nav-sep">管理</div>
+      <div class="nav-item active" data-tab="channels"><span class="ic">▤</span>渠道配置</div>
+      <div class="nav-item" data-tab="templates"><span class="ic">▦</span>模板编辑</div>
+      <div class="nav-sep">监控</div>
+      <div class="nav-item" data-tab="sends"><span class="ic">◷</span>发送结果</div>
+      <div class="nav-item" data-tab="test"><span class="ic">✉</span>测试发送</div>
+    </nav>
+    <div class="side-foot">
+      <div>服务状态</div>
+      <div class="row"><span>健康检查</span><span class="dot" id="health-dot"></span></div>
+      <div class="row"><span>数据目录</span><span style="font-family:var(--mono)">/data</span></div>
+    </div>
+  </aside>
+
+  <!-- ===== 主区 ===== -->
+  <main class="main">
+    <div class="topbar">
+      <div class="crumb">控制台 / <b id="crumb">渠道配置</b></div>
+      <div class="spacer"></div>
+      <input class="token-input" id="token-input" type="password" placeholder="Bearer Token（--auth-token）" />
+      <div class="status-pill"><span class="dot"></span>服务正常</div>
+    </div>
+
+    <div class="content">
+      <!-- ======== 渠道配置 ======== -->
+      <section class="page" id="page-channels">
+        <div class="page-head">
+          <div><h1>渠道配置</h1><p>管理各通知渠道的机器人凭据，凭据仅存于服务端 data/channels 目录。</p></div>
+          <button class="btn primary" id="btn-add-channel">+ 新增渠道</button>
+        </div>
+        <div class="channels">
+          <div class="card">
+            <div class="card-head"><h3>渠道列表</h3><span class="hint" id="chan-count">0 个渠道</span></div>
+            <div class="card-body chan-list" id="chan-list"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3 id="chan-form-title">渠道 · 配置</h3><span class="hint" id="chan-form-hint">channel</span></div>
+            <div class="card-body">
+              <div class="cfg-form" id="chan-form"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======== 模板编辑 ======== -->
+      <section class="page" id="page-templates" style="display:none">
+        <div class="page-head">
+          <div><h1>模板编辑</h1><p>编辑各渠道通知模板，保存后热重载生效，编辑时右侧实时预览渲染结果。</p></div>
+          <button class="btn primary" id="btn-save-tmpl">保存模板</button>
+        </div>
+        <div class="tmpl">
+          <div class="card">
+            <div class="card-head"><h3>模板文件</h3><span class="hint" id="tmpl-count">0 个</span></div>
+            <div class="card-body tmpl-side" id="tmpl-list"></div>
+          </div>
+          <div>
+            <div class="editor-wrap">
+              <div class="editor-top">
+                <span style="font-family:var(--mono)" id="tmpl-filename">—</span>
+                <div class="seg"><span class="seg-chip on">title</span><span class="seg-chip">text</span><span class="seg-chip">markdown</span></div>
+              </div>
+              <textarea class="editor" id="tmpl-editor" spellcheck="false" placeholder="选择左侧模板文件开始编辑…"></textarea>
+            </div>
+            <div class="preview">
+              <div class="preview-head"><div class="ttl"><span>渲染预览</span><span class="seg-chip" style="color:var(--ok)">示例数据</span></div><span class="hint">300ms 防抖实时预览</span></div>
+              <div class="preview-body" id="tmpl-preview">
+                <div class="empty"><div class="big">◷</div>编辑模板内容后将在此实时显示渲染结果</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======== 发送结果 ======== -->
+      <section class="page" id="page-sends" style="display:none">
+        <div class="page-head">
+          <div><h1>发送结果</h1><p>查询各渠道告警通知的发送记录，支持多维度筛选与详情查看。</p></div>
+          <button class="btn ghost" id="btn-refresh-sends">↻ 刷新</button>
+        </div>
+
+        <div class="stats" id="send-stats"></div>
+
+        <div class="filters">
+          <select id="f-channel"><option value="">全部渠道</option></select>
+          <select id="f-status"><option value="">全部状态</option><option value="success">成功</option><option value="failure">失败</option></select>
+          <div class="spacer"></div>
+          <div class="refresh" id="auto-refresh"><span class="dot" style="background:var(--ok)"></span>每 5s 自动刷新</div>
+        </div>
+
+        <div class="card">
+          <table class="table">
+            <thead><tr><th>时间</th><th>渠道</th><th>状态</th><th>告警数</th><th>耗时</th><th>错误</th><th></th></tr></thead>
+            <tbody id="sends-tbody">
+              <tr><td colspan="7"><div class="empty"><div class="big">◷</div>暂无发送记录</div></td></tr>
+            </tbody>
+          </table>
+          <div class="pager">
+            <span id="sends-total">共 0 条</span>
+            <div class="pg">
+              <span class="page-size">每页 <select id="page-size"><option>10</option><option selected>20</option><option>50</option></select> 条</span>
+              <button class="btn ghost" id="btn-prev">‹ 上一页</button>
+              <span class="muted" id="page-info">1 / 1</span>
+              <button class="btn ghost" id="btn-next">下一页 ›</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======== 测试发送 ======== -->
+      <section class="page" id="page-test" style="display:none">
+        <div class="page-head">
+          <div><h1>测试发送</h1><p>向已配置的渠道发送一条测试消息，验证凭据与配置是否有效。</p></div>
+        </div>
+        <div class="test">
+          <div class="card">
+            <div class="card-head"><h3>发送测试消息</h3></div>
+            <div class="card-body test-form">
+              <div class="field">
+                <label>目标渠道</label>
+                <select id="test-channel"></select>
+              </div>
+              <div class="field">
+                <label>关联模板 <span class="hint" style="color:var(--faint);font-size:11px">（可选，仅显示当前渠道模板）</span></label>
+                <select id="test-template"><option value="">不使用模板（简单文本）</option></select>
+              </div>
+              <div id="test-template-fields" style="display:none">
+                <div class="field">
+                  <label>告警状态</label>
+                  <select id="fld-status">
+                    <option value="firing" selected>firing</option>
+                    <option value="resolved">resolved</option>
+                  </select>
+                </div>
+                <div class="grid2">
+                  <div class="field"><label>告警名 alertname</label><input id="fld-alertname" value="TestAlert" /></div>
+                  <div class="field"><label>级别 severity</label><input id="fld-severity" value="warning" /></div>
+                </div>
+                <div class="grid2">
+                  <div class="field"><label>实例 instance</label><input id="fld-instance" value="prod/nginx-7d8f9b" /></div>
+                  <div class="field"><label>摘要 summary</label><input id="fld-summary" value="测试告警摘要" /></div>
+                </div>
+                <div class="field">
+                  <label>外部链接 externalURL</label>
+                  <input id="fld-externalURL" value="http://alertmanager.example.com" />
+                </div>
+                <div class="field">
+                  <label>自定义标签 KV</label>
+                  <div id="kv-rows"></div>
+                  <button class="btn ghost" id="btn-add-kv" type="button" style="margin-top:6px">+ 添加自定义标签</button>
+                </div>
+              </div>
+              <div class="field" id="test-text-wrap">
+                <label>测试内容</label>
+                <textarea class="editor" id="test-text" style="min-height:120px;font-family:var(--sans);font-size:13px">**Test Alert** 👋&#10;这是一条来自 Webhook 控制台的测试消息。</textarea>
+              </div>
+              <button class="btn primary" id="btn-test-send">发送测试消息</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>发送结果</h3><span class="hint">最近一次</span></div>
+            <div class="card-body test-result" id="test-result">
+              <div class="empty"><div class="big">✉</div>尚未发送测试消息</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/ui/static/app.js"></script>
+</body>
+</html>

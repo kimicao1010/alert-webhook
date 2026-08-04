@@ -1,0 +1,77 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alertmanager-webhook-adapter
+  namespace: infra
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alertmanager-webhook-adapter
+  template:
+    metadata:
+      labels:
+        app: alertmanager-webhook-adapter
+    spec:
+      containers:
+      - name: webhook
+        image: kimicao1010/alert-webhook:v1.1.11
+        command:
+        - /alertmanager-webhook-adapter
+        - --listen-address=:8090
+        - --signature=MyIDC
+        - --tmpl-lang=zh
+        # 数据目录：渠道配置/模板/发送记录持久化；须挂载卷
+        - --data-dir=/data
+        # Bearer 认证：未配置则 API 无认证（生产环境务必配置）
+        - --auth-token=$(AUTH_TOKEN)
+        env:
+        - name: TZ
+          value: Asia/Shanghai
+        - name: AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: awh-auth-token
+              key: token
+              optional: true
+        # 探针：依赖 /healthz /readyz 端点（T008）
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8090
+          initialDelaySeconds: 10
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8090
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        resources:
+          requests:
+            memory: 50Mi
+            cpu: 100m
+          limits:
+            memory: 250Mi
+            cpu: 500m
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: awh-data
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: awh-data
+  namespace: infra
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

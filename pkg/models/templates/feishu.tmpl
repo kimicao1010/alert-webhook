@@ -1,0 +1,103 @@
+{{ define "__subject" -}}
+【{{ .Signature }}】
+{{- if eq (index .Alerts 0).Labels.severity "ok" }} OK{{ end }}
+{{- if eq (index .Alerts 0).Labels.severity "info" }} INFO{{ end }}
+{{- if eq (index .Alerts 0).Labels.severity "warning" }} WARNING{{ end }}
+{{- if eq (index .Alerts 0).Labels.severity "critical" }} CRITICAL{{ end }}
+{{- ` • ` }}
+{{- if .CommonLabels.alertname_cn }}{{ .CommonLabels.alertname_cn }}{{ else if .CommonLabels.alertname_custom }}{{ .CommonLabels.alertname_custom }}{{ else if .CommonAnnotations.alertname  }}{{ .CommonAnnotations.alertname }}{{ else }}{{ .GroupLabels.alertname }}{{ end }}
+{{- ` • ` }}
+{{- if gt (.Alerts.Firing|len) 0 }}Firing:{{ .Alerts.Firing|len }}{{ end }}
+{{- if and (gt (.Alerts.Firing|len) 0) (gt (.Alerts.Resolved|len) 0) }}/{{ end }}
+{{- if gt (.Alerts.Resolved|len) 0 }}Resolved:{{ .Alerts.Resolved|len }}{{ end }}
+{{ end }}
+
+
+{{ define "__externalURL" -}}
+{{ .ExternalURL }}/#/alerts?receiver={{ .Receiver }}
+{{- end }}
+
+{{ define "__alertinstance" -}}
+{{- if ne .Labels.alertinstance nil -}}{{ .Labels.alertinstance }}
+{{- else if ne .Labels.instance nil -}}{{ .Labels.instance }}
+{{- else if ne .Labels.node nil -}}{{ .Labels.node }}
+{{- else if ne .Labels.nodename nil -}}{{ .Labels.nodename }}
+{{- else if ne .Labels.host nil -}}{{ .Labels.host }}
+{{- else if ne .Labels.hostname nil -}}{{ .Labels.hostname }}
+{{- else if ne .Labels.ip nil -}}{{ .Labels.ip }}
+{{- end -}}
+{{- end }}
+
+{{ define "__alert_list" }}
+{{ $timeFormat:="2006-01-02 15:04:05" }}
+{{ range . }}
+- **Alert Name**: <text_tag color='blue'>{{ if .Labels.alertname_cn  }}{{ .Labels.alertname_cn }}{{ else if .Labels.alertname_custom  }}{{ .Labels.alertname_custom }}{{ else if .Annotations.alertname  }}{{ .Annotations.alertname }}{{ else }}{{ .Labels.alertname }}{{ end }}</text_tag>
+**Alert Level**:{{ ` ` }}
+{{- if eq .Labels.severity "ok" }}<text_tag color='purple'>OK</text_tag>{{ end -}}
+{{- if eq .Labels.severity "info" }}<text_tag color='lime'>INFO</text_tag>{{ end -}}
+{{- if eq .Labels.severity "warning" }}<text_tag color='yellow'>WARNING</text_tag>{{ end -}}
+{{- if eq .Labels.severity "critical" }}<text_tag color='red'>CRITICAL</text_tag>{{ end }}
+**Instance**: <text_tag color='purple'>{{ template "__alertinstance" . }}</text_tag>
+{{- if .Labels.region }}
+**Region**: <text_tag color='neutral'>{{ .Labels.region }}</text_tag>
+{{- end }}
+{{- if .Labels.zone }}
+**Zone**: <text_tag color='neutral'>{{ .Labels.zone }}</text_tag>
+{{- end }}
+{{- if .Labels.product }}
+**Product**: <text_tag color='neutral'>{{ .Labels.product }}</text_tag>
+{{- end }}
+{{- if .Labels.component  }}
+**Component**: <text_tag color='neutral'>{{ .Labels.component }}</text_tag>
+{{- end }}
+**Alert Status**: {{ if eq .Status "firing" }}🚨 <text_tag color='carmine'>{{ .Status | toUpper }}</text_tag>{{ else }}✅ <text_tag color='green'>{{ .Status | toUpper }}</text_tag>{{ end }}
+**Start At**: <text_tag color='neutral'>{{ .StartsAt.Format $timeFormat }}</text_tag>
+**End At**: <text_tag color='neutral'>{{ if .EndsAt.After .StartsAt }}{{ .EndsAt.Format $timeFormat }}{{ else }}Not End{{ end }}</text_tag>
+{{- if eq .Status "firing" }}
+**Description**: {{ if .Annotations.description_en }}{{ .Annotations.description_en }}{{ else }}{{ .Annotations.description }}{{ end }}
+{{ end }}
+{{ end }}{{ end }}
+
+{{ define "__alert_summary" }}
+{{ range . -}}
+- {{ if eq .Status "firing" -}}
+<text_tag color='red'>{{ template "__alertinstance" . }}</text_tag>
+{{- else -}}
+<text_tag color='green'>{{ template "__alertinstance" . }}</text_tag>
+{{- end }}
+{{ end }}
+{{- end }}
+
+{{ define "prom.title" -}}
+{{ template "__subject" . -}}{{ end }}
+
+{{ define "prom.markdown" }}
+<font color='grey'>{{ .MessageAt.Format "2006-01-02T15:04:05Z07:00" }}</font>
+---
+**Summary**
+
+{{ if gt (.Alerts.Firing|len ) 0 -}}
+**🚨 Firing [{{ .Alerts.Firing|len }}] alerts**
+
+{{ template "__alert_summary" .Alerts.Firing }}{{ end }}
+
+{{ if gt (.Alerts.Resolved|len) 0 -}}
+**✅ Resolved [{{ .Alerts.Resolved|len }}] alerts**
+
+{{ template "__alert_summary" .Alerts.Resolved }}{{ end }}
+
+---
+**Detail**
+
+{{ if gt (.Alerts.Firing|len ) 0 -}}
+**🚨 Firing [{{ .Alerts.Firing|len }}] alerts**
+{{ template "__alert_list" .Alerts.Firing }}{{ end }}
+
+{{ if gt (.Alerts.Resolved|len) 0 -}}
+**✅ Resolved [{{ .Alerts.Resolved|len }}] alerts**
+{{ template "__alert_list" .Alerts.Resolved }}{{ end }}
+{{ end }}
+
+{{ define "prom.text" }}
+{{ template "prom.markdown" . }}
+{{ end }}

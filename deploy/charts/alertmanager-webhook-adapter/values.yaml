@@ -1,0 +1,17 @@
+image:
+  name: kimicao1010/alert-webhook
+  tag: v1.1.11
+signature: MyIDC
+lang: en
+timezone: Asia/Shanghai
+# 数据目录（渠道配置/模板/发送记录持久化）
+dataDir: /data
+# Web UI 开关
+webEnabled: true
+# Bearer 认证 token（生产环境务必设置）
+authToken: ""
+# 是否创建 PVC 挂载数据目录
+persistence:
+  enabled: false
+  storageClass: ""
+  size: 1Gi

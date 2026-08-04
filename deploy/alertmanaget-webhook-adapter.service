@@ -1,0 +1,17 @@
+[Unit]
+Description=alertmanager-webhook-adapter
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+# 数据目录：渠道配置/模板/发送记录；容器/系统服务部署时确保目录可写
+ExecStart=/usr/local/bin/alertmanager-webhook-adapter \
+          --listen-address=:8060 \
+          --data-dir=/var/lib/alertmanager-webhook-adapter \
+          --auth-token=${AUTH_TOKEN}
+Restart=always
+# 生产环境建议通过 EnvironmentFile 注入 AUTH_TOKEN，示例：
+# EnvironmentFile=-/etc/alertmanager-webhook-adapter.env
+
+[Install]
+WantedBy=multi-user.target

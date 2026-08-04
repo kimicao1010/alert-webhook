@@ -1,0 +1,60 @@
+package app
+
+import (
+	"flag"
+	"fmt"
+	"os"
+
+	"github.com/kimicao1010/alert-webhook/cmd/alertmanager-webhook-adapter/app/options"
+	"github.com/kimicao1010/alert-webhook/pkg/version"
+	"github.com/spf13/cobra"
+)
+
+func NewRootCommand() *cobra.Command {
+	o := options.NewAppOptions()
+
+	rootCmd := &cobra.Command{
+		Use:   "alertmanager-webhook-adapter",
+		Short: "alertmanager-webhook-adapter",
+		Long:  `alertmanager-webhook-adapter`,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if o.Version {
+				fmt.Printf("Version: %s\n", version.Version)
+				fmt.Printf("Commit: %s\n", version.Commit)
+				fmt.Printf("BuildAt: %s\n", version.BuildAt)
+				return nil
+			}
+			return nil
+		},
+
+		Run: func(cmd *cobra.Command, args []string) {
+			if o.Version {
+				return
+			}
+
+			if err := o.Run(); err != nil {
+				fmt.Println("Error:", err)
+				os.Exit(1)
+				return
+			}
+		},
+	}
+
+	rootCmd.Flags().StringVarP(&o.Addr, "listen-address", "l", "0.0.0.0:8090", "the address to listen")
+	rootCmd.Flags().StringVarP(&o.Signature, "signature", "s", "未知", "the signature")
+	rootCmd.Flags().StringVarP(&o.TmplDir, "tmpl-dir", "d", "", "the tmpl dir")
+	rootCmd.Flags().StringVarP(&o.TmplName, "tmpl-name", "t", "", "the tmpl name")
+	rootCmd.Flags().StringVarP(&o.TmplDefault, "tmpl-default", "n", "", "the default tmpl name")
+	rootCmd.Flags().StringVarP(&o.TmplLang, "tmpl-lang", "", "", "the language for template filename")
+	rootCmd.Flags().StringVarP(&o.LogLevel, "log-level", "", "info", "log level: debug/info/warn/error")
+	rootCmd.Flags().StringVarP(&o.LogFormat, "log-format", "", "text", "log format: text/json")
+	rootCmd.Flags().StringVarP(&o.AuthToken, "auth-token", "", "", "shared bearer token for request authentication (empty = disabled)")
+	rootCmd.Flags().StringVarP(&o.DataDir, "data-dir", "", "/data", "data directory for channel configs, templates and send records")
+	rootCmd.Flags().BoolVarP(&o.WebEnabled, "web-enabled", "", true, "enable web UI and management API")
+	rootCmd.Flags().BoolVarP(&o.Version, "version", "v", false, "show version")
+	rootCmd.Flags().BoolVarP(&o.Debug, "debug", "", false, "enable verbose output ")
+
+	rootCmd.Flags().AddGoFlagSet(flag.CommandLine)
+
+	return rootCmd
+}

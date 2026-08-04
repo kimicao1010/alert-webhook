@@ -1,0 +1,126 @@
+package options
+
+import (
+	"errors"
+	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+
+	restful "github.com/emicklei/go-restful/v3"
+
+	"github.com/kimicao1010/alert-webhook/pkg/api"
+	"github.com/kimicao1010/alert-webhook/pkg/models"
+	"github.com/kimicao1010/alert-webhook/pkg/models/templates"
+	"github.com/kimicao1010/alert-webhook/pkg/webhook-adapter/channelstore"
+	"github.com/kimicao1010/alert-webhook/pkg/webhook-adapter/sendstore"
+	"github.com/kimicao1010/alert-webhook/pkg/webhook-adapter/tmplstore"
+)
+
+type AppOptions struct {
+	Addr        string
+	Signature   string
+	TmplDir     string
+	TmplName    string
+	TmplDefault string
+	TmplLang    string
+	LogLevel    string
+	LogFormat   string
+	AuthToken   string
+	DataDir     string
+	WebEnabled  bool
+	Version     bool
+	Debug       bool
+}
+
+func NewAppOptions() *AppOptions {
+	return &AppOptions{}
+}
+
+func (o *AppOptions) Run() error {
+	execFile, err := os.Executable()
+	if err != nil {
+		panic("fatal")
+	}
+
+	// If using builtin templates (o.TmplDir == ""), then we must check whether or not the specified lang is supported.
+	if o.TmplLang != "" && o.TmplDir == "" {
+		if _, exists := templates.DefaultTmplByLang[o.TmplLang]; !exists {
+			return fmt.Errorf("the builtin templates does not support specified lang (%s), builtin supported langs: (%s)", o.TmplLang, strings.Join(templates.DefaultSupportedLangs(), ","))
+		}
+		if err := models.LoadDefaultTemplate(o.TmplLang); err != nil {
+			return fmt.Errorf("load default template for lang (%s) failed, err: %s", o.TmplLang, err)
+		}
+	}
+
+	if o.TmplDir == "" && (o.TmplName != "" || o.TmplDefault != "") {
+		fmt.Println("Warning, there is no meaning to specify --tmpl-name or --tmpl-default option without specify --tmpl-dir option, just ignored.")
+	}
+
+	if o.TmplDir != "" {
+		if o.TmplName != "" && o.TmplDefault != "" {
+			fmt.Println("Warning, there is no meaning to specify --tmpl-name and --tmpl-default options together, --tmpl-default is ignored.")
+			o.TmplDefault = ""
+		}
+
+		if !filepath.IsAbs(o.TmplDir) {
+			o.TmplDir = filepath.Join(filepath.Dir(execFile), o.TmplDir)
+		}
+
+		if err := models.LoadTemplate(o.TmplDir, o.TmplName, o.TmplDefault, o.TmplLang); err != nil {
+			msg := fmt.Sprintf("Load templates from dir (%s) failed, err: %s", o.TmplDir, err)
+			return errors.New(msg)
+		}
+	}
+
+	logger := api.NewLogger(o.LogLevel, o.LogFormat)
+	if o.Debug && o.LogLevel == "" {
+		logger = api.NewLogger("debug", o.LogFormat)
+	}
+
+	logger.Info("signature", "value", o.Signature)
+	if o.Signature == "未知" {
+		logger.Warn("using the default signature, suggest to specify a custom signature by --signature option")
+	}
+
+	httpProxy := os.Getenv("HTTP_PROXY")
+	httpsProxy := os.Getenv("HTTPS_PROXY")
+	noProxy := os.Getenv("NO_PROXY")
+	if httpProxy != "" || httpsProxy != "" {
+		logger.Info("found http proxy from environment variables",
+			"HTTP_PROXY", httpProxy,
+			"HTTPS_PROXY", httpsProxy,
+			"NO_PROXY", noProxy,
+		)
+	}
+
+	container := restful.DefaultContainer
+
+	controller := api.NewController(o.Signature)
+	controller.WithLogger(logger)
+	controller.WithDebug(o.Debug)
+	controller.WithAuthToken(o.AuthToken)
+	controller.WithDataDir(o.DataDir)
+	controller.WithWebEnabled(o.WebEnabled)
+	controller.WithChannelStore(channelstore.NewJSONStore(filepath.Join(o.DataDir, "channels")))
+	controller.WithSendStore(sendstore.NewJSONStore(filepath.Join(o.DataDir, "sends.json"), 1000))
+
+	// 模板存储：首次启动从内置模板复制初始副本
+	tmplStore := tmplstore.NewJSONStore(filepath.Join(o.DataDir, "templates"))
+	if err := tmplStore.EnsureInitialTemplates(); err != nil {
+		return fmt.Errorf("ensure initial templates failed, err: %s", err)
+	}
+	controller.WithTmplStore(tmplStore)
+
+	logger.Info("web ui enabled", "data_dir", o.DataDir, "web_enabled", o.WebEnabled)
+
+	controller.Install(container)
+
+	s := &http.Server{
+		Addr:    o.Addr,
+		Handler: container,
+	}
+	logger.Info("start listening", "addr", s.Addr)
+	return s.ListenAndServe()
+}
