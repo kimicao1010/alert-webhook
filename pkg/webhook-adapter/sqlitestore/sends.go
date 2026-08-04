@@ -26,7 +26,8 @@ func (v *SendView) Append(r store.SendRecord) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	// 提交成功后回滚是 no-op；显式忽略其错误（ErrTxDone），满足 errcheck。
+	defer func() { _ = tx.Rollback() }()
 
 	if _, err := tx.Exec(
 		`INSERT INTO sends(timestamp, channel, kind, status, error, alert_count, duration_ms, raw, title, text, markdown)
