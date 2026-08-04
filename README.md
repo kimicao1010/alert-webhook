@@ -21,7 +21,7 @@ A general webhook server for receiving [Prometheus AlertManager](https://prometh
 - `feishu`, Feishu Group Bot / 飞书群机器人
 - `weixinapp`, Weixin Application / 企业微信应用
 
-各渠道配置字段（在 Web UI 渠道配置页填写，存于 `<data-dir>/channels/`）：
+各渠道配置字段（在 Web UI 渠道配置页填写，默认存于 SQLite 数据库，见「存储」章节）：
 
 | 渠道 | 配置字段 |
 |------|---------|
@@ -51,6 +51,28 @@ $ ./alertmanager-webhook-adapter --data-dir=/data --auth-token=your-token
 # 关闭 Web UI
 $ ./alertmanager-webhook-adapter --web-enabled=false
 ```
+
+## 存储
+
+默认使用 **SQLite 单文件存储**（`modernc.org/sqlite` 纯 Go 驱动，无 CGO 依赖，保持交叉编译能力）：
+
+- 数据库文件：`<data-dir>/adapter.db`（可用 `--sqlite-path` 指定其他路径）
+- 三张表：`channels`（渠道凭据）、`templates`（模板内容）、`sends`（发送记录）
+- 发送记录含内容快照：**原始调用体（raw）+ 渲染后的 title/text/markdown**，成功/失败均记录，便于溯源与模板调试
+- 发送记录上限 1000 条（超出自动裁剪最旧记录）
+
+```bash
+# 默认：SQLite 存储（adapter.db 位于 data-dir）
+$ ./alertmanager-webhook-adapter --data-dir=/data --auth-token=your-token
+
+# 指定 SQLite 文件路径
+$ ./alertmanager-webhook-adapter --sqlite-path=/var/lib/awa/adapter.db
+
+# 调试开关：改用旧的 JSON 数据目录存储（channels/*.json + sends.json + templates/*.tmpl）
+$ ./alertmanager-webhook-adapter --use-data-dir --data-dir=/tmp/debug
+```
+
+> `--use-data-dir` 仅用于临时调试，两种存储模式互斥、数据不互通（不会迁移旧 JSON 数据）。生产环境使用默认 SQLite。
 
 ## Run
 
@@ -167,6 +189,8 @@ Flags:
       --tmpl-lang string        the language for template filename
   -t, --tmpl-name string        the tmpl name
       --data-dir string         data directory for channel configs, templates and send records (default "/data")
+      --sqlite-path string      path to SQLite database file (default: <data-dir>/adapter.db)
+      --use-data-dir            use legacy JSON data-dir storage instead of SQLite (debug only)
       --web-enabled             enable web UI and management API (default true)
       --auth-token string       shared bearer token for request authentication (empty = disabled)
       --log-level string        log level: debug/info/warn/error (default "info")
