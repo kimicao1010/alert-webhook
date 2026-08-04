@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"path/filepath"
 	"strconv"
 
 	restful "github.com/emicklei/go-restful/v3"
@@ -207,8 +206,8 @@ func (c *Controller) saveTemplate(request *restful.Request, response *restful.Re
 		response.WriteHeaderAndJson(http.StatusBadRequest, map[string]string{"error": err.Error()}, restful.MIME_JSON)
 		return
 	}
-	// 热重载模板目录，使修改立即生效
-	if err := promModels.LoadTemplate(filepath.Join(c.dataDir, "templates"), "", "", ""); err != nil {
+	// 热重载模板存储，使修改立即生效（SQLite / JSON 两模式统一从 store 重载）
+	if err := promModels.LoadTemplatesFromSource(c.tmplStore, ""); err != nil {
 		c.logger.Warn("reload templates failed", "err", err.Error())
 		response.WriteHeaderAndJson(http.StatusOK, map[string]string{"status": "ok", "reload": "failed", "error": err.Error()}, restful.MIME_JSON)
 		return
@@ -226,8 +225,8 @@ func (c *Controller) deleteTemplate(request *restful.Request, response *restful.
 		response.WriteHeaderAndJson(http.StatusBadRequest, map[string]string{"error": err.Error()}, restful.MIME_JSON)
 		return
 	}
-	// 热重载模板目录
-	if err := promModels.LoadTemplate(filepath.Join(c.dataDir, "templates"), "", "", ""); err != nil {
+	// 热重载模板存储（SQLite / JSON 两模式统一从 store 重载）
+	if err := promModels.LoadTemplatesFromSource(c.tmplStore, ""); err != nil {
 		c.logger.Warn("reload templates failed", "err", err.Error())
 		response.WriteHeaderAndJson(http.StatusOK, map[string]string{"status": "ok", "reload": "failed", "error": err.Error()}, restful.MIME_JSON)
 		return

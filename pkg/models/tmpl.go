@@ -69,7 +69,6 @@ func LoadDefaultTemplate(tmplLang string) error {
 
 // LoadTemplate loads external templates from specified template dir.
 func LoadTemplate(tmplDir, tmplName, tmplDefault, tmplLang string) error {
-
 	// If tmplName is not empty, use the specified tmpl to update the default promMsgTemplate
 	// and clear the promMsgTemplatesMap, thus will use the specified tmpl for all notification channels.
 	if tmplName != "" {
@@ -237,4 +236,47 @@ func RenderTemplateContent(content string, templateName string, data interface{}
 		return "", err
 	}
 	return buf.String(), nil
+}
+
+// TemplateSource 模板内容来源的最小抽象（List + Get），
+// 由存储层结构化满足（JSONStore / sqlitestore.TemplateView），避免 models 反向依赖 store。
+type TemplateSource interface {
+	List() ([]string, error)
+	Get(name string) (string, error)
+}
+
+// LoadTemplatesFromSource 从模板存储（而非文件系统）热重载各渠道模板。
+// 语义与 LoadTemplate 的渠道循环一致：
+//   - 存储中存在 <channel>[.<lang>].tmpl → 用其内容更新该渠道模板
+//   - 存储中不存在 → 保持当前模板不变
+//
+// 供 Web UI 保存/删除模板后触发，SQLite 与 JSON 两种存储后端统一生效。
+func LoadTemplatesFromSource(src TemplateSource, tmplLang string) error {
+	names, err := src.List()
+	if err != nil {
+		return fmt.Errorf("list templates from source failed, err: %s", err)
+	}
+	available := make(map[string]bool, len(names))
+	for _, n := range names {
+		available[n] = true
+	}
+
+	for channel, t := range promMsgTemplatesMap {
+		name := fmt.Sprintf("%s.%s", channel, "tmpl")
+		if tmplLang != "" && tmplLang != "en" {
+			name = fmt.Sprintf("%s.%s.%s", channel, tmplLang, "tmpl")
+		}
+		if !available[name] {
+			// 该渠道无自定义模板，保持当前（内置或已加载）模板
+			continue
+		}
+		content, err := src.Get(name)
+		if err != nil {
+			return fmt.Errorf("read template (%s) from source failed, err: %s", name, err)
+		}
+		if err := t.UpdateTemplate(content); err != nil {
+			return fmt.Errorf("UpdateTemplate for (%s) failed, err: %s", channel, err)
+		}
+	}
+	return nil
 }
