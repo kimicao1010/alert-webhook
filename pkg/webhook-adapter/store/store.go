@@ -44,6 +44,14 @@ type SendRecord struct {
 	AlertCount int `json:"alertCount"`
 	// Duration 发送耗时（毫秒）。
 	Duration int64 `json:"durationMs"`
+	// Raw 调用源原始请求体（原始 webhook JSON body），用于溯源与模板调试。
+	Raw string `json:"raw,omitempty"`
+	// Title 渲染后的消息标题（prom.title 段）。
+	Title string `json:"title,omitempty"`
+	// Text 渲染后的纯文本内容（prom.text 段）。
+	Text string `json:"text,omitempty"`
+	// Markdown 渲染后的 Markdown 内容（prom.markdown 段）。
+	Markdown string `json:"markdown,omitempty"`
 }
 
 // SendStore 发送记录存储。
