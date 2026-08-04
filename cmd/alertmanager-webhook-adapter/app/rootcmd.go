@@ -50,6 +50,8 @@ func NewRootCommand() *cobra.Command {
 	rootCmd.Flags().StringVarP(&o.LogFormat, "log-format", "", "text", "log format: text/json")
 	rootCmd.Flags().StringVarP(&o.AuthToken, "auth-token", "", "", "shared bearer token for request authentication (empty = disabled)")
 	rootCmd.Flags().StringVarP(&o.DataDir, "data-dir", "", "/data", "data directory for channel configs, templates and send records")
+	rootCmd.Flags().BoolVarP(&o.UseDataDir, "use-data-dir", "", false, "use legacy JSON data-dir storage instead of SQLite (debug only)")
+	rootCmd.Flags().StringVarP(&o.SQLitePath, "sqlite-path", "", "", "path to SQLite database file (default: <data-dir>/adapter.db)")
 	rootCmd.Flags().BoolVarP(&o.WebEnabled, "web-enabled", "", true, "enable web UI and management API")
 	rootCmd.Flags().BoolVarP(&o.Version, "version", "v", false, "show version")
 	rootCmd.Flags().BoolVarP(&o.Debug, "debug", "", false, "enable verbose output ")

@@ -15,6 +15,7 @@ import (
 	"github.com/kimicao1010/alert-webhook/pkg/models/templates"
 	"github.com/kimicao1010/alert-webhook/pkg/webhook-adapter/channelstore"
 	"github.com/kimicao1010/alert-webhook/pkg/webhook-adapter/sendstore"
+	"github.com/kimicao1010/alert-webhook/pkg/webhook-adapter/sqlitestore"
 	"github.com/kimicao1010/alert-webhook/pkg/webhook-adapter/tmplstore"
 )
 
@@ -32,6 +33,11 @@ type AppOptions struct {
 	WebEnabled  bool
 	Version     bool
 	Debug       bool
+	// UseDataDir 为 true 时使用旧的 JSON 数据目录存储（调试开关，默认 false）。
+	// 默认 false：所有数据写入 SQLite 单文件（DataDir/adapter.db 或 SQLitePath 指定路径）。
+	UseDataDir bool
+	// SQLitePath 覆盖 SQLite 库文件默认路径（空则使用 DataDir/adapter.db）。
+	SQLitePath string
 }
 
 func NewAppOptions() *AppOptions {
@@ -103,15 +109,37 @@ func (o *AppOptions) Run() error {
 	controller.WithAuthToken(o.AuthToken)
 	controller.WithDataDir(o.DataDir)
 	controller.WithWebEnabled(o.WebEnabled)
-	controller.WithChannelStore(channelstore.NewJSONStore(filepath.Join(o.DataDir, "channels")))
-	controller.WithSendStore(sendstore.NewJSONStore(filepath.Join(o.DataDir, "sends.json"), 1000))
-
-	// 模板存储：首次启动从内置模板复制初始副本
-	tmplStore := tmplstore.NewJSONStore(filepath.Join(o.DataDir, "templates"))
-	if err := tmplStore.EnsureInitialTemplates(); err != nil {
-		return fmt.Errorf("ensure initial templates failed, err: %s", err)
+	if o.UseDataDir {
+		// 调试模式：JSON 数据目录存储（旧实现，不导入也不写入 SQLite）
+		controller.WithChannelStore(channelstore.NewJSONStore(filepath.Join(o.DataDir, "channels")))
+		controller.WithSendStore(sendstore.NewJSONStore(filepath.Join(o.DataDir, "sends.json"), 1000))
+		tmplStore := tmplstore.NewJSONStore(filepath.Join(o.DataDir, "templates"))
+		if err := tmplStore.EnsureInitialTemplates(); err != nil {
+			return fmt.Errorf("ensure initial templates failed, err: %s", err)
+		}
+		controller.WithTmplStore(tmplStore)
+		logger.Info("storage backend", "type", "json-data-dir", "data_dir", o.DataDir)
+	} else {
+		// 默认：SQLite 单文件存储（不导入旧 JSON 数据）
+		sqlitePath := o.SQLitePath
+		if sqlitePath == "" {
+			sqlitePath = filepath.Join(o.DataDir, "adapter.db")
+		}
+		if err := os.MkdirAll(filepath.Dir(sqlitePath), 0o755); err != nil {
+			return fmt.Errorf("create sqlite dir failed, err: %s", err)
+		}
+		db, err := sqlitestore.Open(sqlitePath)
+		if err != nil {
+			return fmt.Errorf("open sqlite store failed, err: %s", err)
+		}
+		if err := db.Templates().EnsureInitialTemplates(); err != nil {
+			return fmt.Errorf("ensure initial templates failed, err: %s", err)
+		}
+		controller.WithChannelStore(db.Channels())
+		controller.WithSendStore(db.Sends())
+		controller.WithTmplStore(db.Templates())
+		logger.Info("storage backend", "type", "sqlite", "path", sqlitePath)
 	}
-	controller.WithTmplStore(tmplStore)
 
 	logger.Info("web ui enabled", "data_dir", o.DataDir, "web_enabled", o.WebEnabled)
 
