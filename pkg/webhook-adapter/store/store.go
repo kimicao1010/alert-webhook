@@ -62,3 +62,27 @@ type SendStore interface {
 	// 返回记录按时间倒序（最新在前）。
 	Query(offset, limit int, channel, status string) ([]SendRecord, error)
 }
+
+// CustomTemplate 自定义模板：关联单个渠道，含字段映射（模板变量名 -> JSON 路径）。
+// FieldMap 声明「模板变量名 = JSON 路径」，渲染时从原始 body 提取后以 .Custom.<var> 暴露。
+type CustomTemplate struct {
+	// Channel 关联渠道名（一对一：一个渠道最多一个自定义模板）。
+	Channel string `json:"channel"`
+	// Content 模板内容（含 {{ define "prom.title" }} 等三段定义，与内置模板同构）。
+	Content string `json:"content"`
+	// FieldMap 字段映射：模板变量名 -> JSON 路径（如 severity -> alerts[0].labels.severity）。
+	FieldMap map[string]string `json:"fieldMap"`
+}
+
+// CustomTemplateStore 自定义模板存储。
+// 实现注意：channel 须防路径穿越（不允许包含 "/" 或 ".."）。
+type CustomTemplateStore interface {
+	// List 返回全部已配置自定义模板（含关联渠道）。
+	List() ([]CustomTemplate, error)
+	// Get 返回指定渠道的自定义模板；未配置时返回 nil（非错误）。
+	Get(channel string) (*CustomTemplate, error)
+	// Save 保存指定渠道的自定义模板（创建或覆盖）。
+	Save(t CustomTemplate) error
+	// Delete 删除指定渠道的自定义模板；不存在时不视为错误。
+	Delete(channel string) error
+}
