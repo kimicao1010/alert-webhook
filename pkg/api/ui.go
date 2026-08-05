@@ -217,7 +217,7 @@ func (c *Controller) saveTemplate(request *restful.Request, response *restful.Re
 		return
 	}
 	// 热重载模板存储，使修改立即生效（SQLite / JSON 两模式统一从 store 重载）
-	if err := promModels.LoadTemplatesFromSource(c.tmplStore, ""); err != nil {
+	if err := promModels.LoadTemplatesFromSource(c.tmplStore); err != nil {
 		c.logger.Warn("reload templates failed", "err", err.Error())
 		_ = response.WriteHeaderAndJson(http.StatusOK, map[string]string{"status": "ok", "reload": "failed", "error": err.Error()}, restful.MIME_JSON)
 		return
@@ -236,7 +236,7 @@ func (c *Controller) deleteTemplate(request *restful.Request, response *restful.
 		return
 	}
 	// 热重载模板存储（SQLite / JSON 两模式统一从 store 重载）
-	if err := promModels.LoadTemplatesFromSource(c.tmplStore, ""); err != nil {
+	if err := promModels.LoadTemplatesFromSource(c.tmplStore); err != nil {
 		c.logger.Warn("reload templates failed", "err", err.Error())
 		_ = response.WriteHeaderAndJson(http.StatusOK, map[string]string{"status": "ok", "reload": "failed", "error": err.Error()}, restful.MIME_JSON)
 		return

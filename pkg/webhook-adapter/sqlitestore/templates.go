@@ -71,11 +71,9 @@ func (v *TemplateView) EnsureInitialTemplates() error {
 	defer v.s.mu.Unlock()
 
 	builtin := map[string]string{}
-	for ch, content := range templates.ChannelsDefaultTmplMapByLang["en"] {
-		builtin[ch+".tmpl"] = content
-	}
-	for ch, content := range templates.ChannelsDefaultTmplMapByLang["zh"] {
-		builtin[ch+".zh.tmpl"] = content
+	defaultContent := templates.DefaultTmpl
+	for _, ch := range []string{"dingtalk", "feishu", "weixin", "weixinapp"} {
+		builtin[ch+".tmpl"] = defaultContent
 	}
 	for name, content := range builtin {
 		var exists int

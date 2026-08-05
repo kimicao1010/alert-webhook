@@ -12,7 +12,7 @@ func TestEnsureInitialTemplates(t *testing.T) {
 	if err := s.EnsureInitialTemplates(); err != nil {
 		t.Fatal(err)
 	}
-	for _, f := range []string{"feishu.tmpl", "dingtalk.tmpl", "weixin.tmpl", "weixinapp.tmpl", "feishu.zh.tmpl"} {
+	for _, f := range []string{"feishu.tmpl", "dingtalk.tmpl", "weixin.tmpl", "weixinapp.tmpl"} {
 		if _, err := os.Stat(filepath.Join(dir, "templates", f)); os.IsNotExist(err) {
 			t.Fatalf("%s not created", f)
 		}

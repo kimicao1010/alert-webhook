@@ -52,13 +52,11 @@ func (s *JSONStore) EnsureInitialTemplates() error {
 		return err
 	}
 
-	// 内置模板：<channel>.tmpl（en）+ <channel>.zh.tmpl（zh）
+	// 内置默认模板：所有渠道共用一套（内容来自 default.tmpl）
 	builtin := map[string]string{}
-	for ch, content := range templates.ChannelsDefaultTmplMapByLang["en"] {
-		builtin[ch+".tmpl"] = content
-	}
-	for ch, content := range templates.ChannelsDefaultTmplMapByLang["zh"] {
-		builtin[ch+".zh.tmpl"] = content
+	defaultContent := templates.DefaultTmpl
+	for _, ch := range []string{"dingtalk", "feishu", "weixin", "weixinapp"} {
+		builtin[ch+".tmpl"] = defaultContent
 	}
 
 	for name, content := range builtin {
