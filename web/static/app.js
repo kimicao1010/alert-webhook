@@ -589,7 +589,7 @@ function renderSends() {
     tbody.innerHTML = records.map((r, i) => {
       const pill = r.status === 'success' ? '<span class="pill succ">成功</span>' : '<span class="pill fail">失败</span>';
       const failTag = r.failover
-        ? `<span class="failover-tag" title="主渠道 ${esc(r.failoverFrom || '')} 发送失败，由本渠道代发">🔄 代发（原 ${esc(r.failoverFrom || '?')}）</span>`
+        ? `<span class="failover-tag" title="主渠道 ${esc(r.failoverFrom || '')} 发送失败，由本渠道代发">FAILOVER</span>`
         : '';
       return `<tr data-idx="${i}">
         <td class="time">${fmtTime(r.timestamp)}</td>
