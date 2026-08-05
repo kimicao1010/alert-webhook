@@ -14,6 +14,7 @@ import (
 	"github.com/kimicao1010/alert-webhook/pkg/models"
 	"github.com/kimicao1010/alert-webhook/pkg/models/templates"
 	"github.com/kimicao1010/alert-webhook/pkg/webhook-adapter/channelstore"
+	"github.com/kimicao1010/alert-webhook/pkg/webhook-adapter/customtmplstore"
 	"github.com/kimicao1010/alert-webhook/pkg/webhook-adapter/sendstore"
 	"github.com/kimicao1010/alert-webhook/pkg/webhook-adapter/sqlitestore"
 	"github.com/kimicao1010/alert-webhook/pkg/webhook-adapter/tmplstore"
@@ -118,6 +119,7 @@ func (o *AppOptions) Run() error {
 			return fmt.Errorf("ensure initial templates failed, err: %s", err)
 		}
 		controller.WithTmplStore(tmplStore)
+		controller.WithCustomTmplStore(customtmplstore.NewJSONStore(filepath.Join(o.DataDir, "custom-templates")))
 		logger.Info("storage backend", "type", "json-data-dir", "data_dir", o.DataDir)
 	} else {
 		// 默认：SQLite 单文件存储（不导入旧 JSON 数据）
@@ -138,6 +140,7 @@ func (o *AppOptions) Run() error {
 		controller.WithChannelStore(db.Channels())
 		controller.WithSendStore(db.Sends())
 		controller.WithTmplStore(db.Templates())
+		controller.WithCustomTmplStore(customtmplstore.NewJSONStore(filepath.Join(o.DataDir, "custom-templates")))
 		logger.Info("storage backend", "type", "sqlite", "path", sqlitePath)
 	}
 
