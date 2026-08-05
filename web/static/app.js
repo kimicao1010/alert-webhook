@@ -378,7 +378,8 @@ async function loadTemplates() {
 
 function renderTemplateList() {
   const box = $('tmpl-list');
-  const builtin = state.templates || [];
+  // 防御性过滤旧版 zh 残留（存储层清理后一般不存在）
+  const builtin = (state.templates || []).filter((t) => !t.endsWith('.zh.tmpl'));
   const custom = state.ctChannels || [];
   $('tmpl-count').textContent = (builtin.length + custom.length) + ' 个';
 
