@@ -110,6 +110,15 @@
                 </div>
               </div>
               <div class="card">
+                <div class="card-head">
+                  <h3>从发送记录选择源报文</h3>
+                  <button class="btn mini" id="btn-refresh-ct-records">↻ 刷新</button>
+                </div>
+                <div class="card-body" style="padding:0">
+                  <div id="ct-records" class="ct-records"><div class="empty small">加载中…</div></div>
+                </div>
+              </div>
+              <div class="card">
                 <div class="card-head"><h3>字段映射</h3><span class="hint">模板变量名 = JSON 路径（如 severity = alerts[0].labels.severity），模板中通过 {{ "{{ .Custom.severity }}" }} 访问</span></div>
                 <div class="card-body">
                   <div id="ct-fieldmap"></div>
@@ -123,8 +132,11 @@
                 <textarea class="editor" id="ct-editor" spellcheck="false" placeholder='{{ "{{ define \"prom.title\" }}" }}…'></textarea>
               </div>
               <div class="card">
-                <div class="card-head"><h3>预览（粘贴调用源 JSON body）</h3></div>
-                <textarea class="editor ct-raw" id="ct-rawbody" spellcheck="false" placeholder='{"receiver":"webhook","alerts":[...]}'></textarea>
+                <div class="card-head"><h3>从报文提取字段</h3><span class="hint">粘贴调用源 JSON 后自动列出可用字段，点击即可添加映射</span></div>
+                <div class="card-body" style="padding:0">
+                  <textarea class="editor ct-raw" id="ct-rawbody" spellcheck="false" placeholder='{"receiver":"webhook","alerts":[...]}'></textarea>
+                  <div id="ct-fields" class="ct-fields"><div class="empty small">粘贴上方调用源 JSON body 后自动列出字段</div></div>
+                </div>
                 <div class="preview-body" id="ct-preview"><div class="empty"><div class="big">◷</div>编辑模板或粘贴调用源 JSON 后实时预览</div></div>
               </div>
             </div>
