@@ -36,7 +36,7 @@ var (
 func init() {
 	var err error
 
-	if err = LoadDefaultTemplate("en"); err != nil {
+	if err = LoadDefaultTemplate(); err != nil {
 		panic(err)
 	}
 
@@ -45,30 +45,31 @@ func init() {
 	}
 }
 
-// LoadDefaultTemplate set default for the package level variables: promMsgTemplate and promMsgTemplatesMap.
-func LoadDefaultTemplate(tmplLang string) error {
-	defaultTmpl := templates.DefaultTmplByLang[tmplLang]
+// LoadDefaultTemplate 加载内置默认模板（全渠道共用一套），
+// 初始化 promMsgTemplateDefault 与 promMsgTemplatesMap。
+func LoadDefaultTemplate() error {
+	defaultTmpl := templates.DefaultTmpl
 	promMsgTemplateDefault = &safeTemplate{}
 	if err := promMsgTemplateDefault.UpdateTemplate(defaultTmpl); err != nil {
 		msg := fmt.Sprintf("UpdateTemplate for default failed, err: %s", err)
 		return errors.New(msg)
 	}
 
-	channelsDefaultTmpls := templates.ChannelsDefaultTmplMapByLang[tmplLang]
-	for k, v := range channelsDefaultTmpls {
+	// 每渠道初始都用默认模板（发送时可被自定义模板覆盖）
+	for _, channel := range []string{"dingtalk", "feishu", "weixin", "weixinapp"} {
 		t := &safeTemplate{}
-		if err := t.UpdateTemplate(v); err != nil {
-			msg := fmt.Sprintf("UpdateTemplate for (%s) failed, err: %s", k, err)
+		if err := t.UpdateTemplate(defaultTmpl); err != nil {
+			msg := fmt.Sprintf("UpdateTemplate for (%s) failed, err: %s", channel, err)
 			return errors.New(msg)
 		}
-		promMsgTemplatesMap[k] = t
+		promMsgTemplatesMap[channel] = t
 	}
 
 	return nil
 }
 
 // LoadTemplate loads external templates from specified template dir.
-func LoadTemplate(tmplDir, tmplName, tmplDefault, tmplLang string) error {
+func LoadTemplate(tmplDir, tmplName, tmplDefault string) error {
 	// If tmplName is not empty, use the specified tmpl to update the default promMsgTemplate
 	// and clear the promMsgTemplatesMap, thus will use the specified tmpl for all notification channels.
 	if tmplName != "" {
@@ -77,9 +78,6 @@ func LoadTemplate(tmplDir, tmplName, tmplDefault, tmplLang string) error {
 		}
 
 		tmplFile := path.Join(tmplDir, fmt.Sprintf("%s.%s", tmplName, "tmpl"))
-		if tmplLang != "" && tmplLang != "en" {
-			tmplFile = path.Join(tmplDir, fmt.Sprintf("%s.%s.%s", tmplName, tmplLang, "tmpl"))
-		}
 		b, err := os.ReadFile(tmplFile)
 		if err != nil {
 			msg := fmt.Sprintf("read file (%s) failed, err: %s", tmplFile, err)
@@ -97,9 +95,6 @@ func LoadTemplate(tmplDir, tmplName, tmplDefault, tmplLang string) error {
 	var customDefaultTmpl string
 	if tmplDefault != "" {
 		tmplFile := path.Join(tmplDir, fmt.Sprintf("%s.%s", tmplDefault, "tmpl"))
-		if tmplLang != "" && tmplLang != "en" {
-			tmplFile = path.Join(tmplDir, fmt.Sprintf("%s.%s.%s", tmplDefault, tmplLang, "tmpl"))
-		}
 		b, err := os.ReadFile(tmplFile)
 		if err != nil {
 			msg := fmt.Sprintf("read file (%s) failed, err: %s", tmplFile, err)
@@ -108,31 +103,28 @@ func LoadTemplate(tmplDir, tmplName, tmplDefault, tmplLang string) error {
 		customDefaultTmpl = string(b)
 	}
 
-	// try to find template file named "<channel>[.<lang>].tmpl" and update the promTemplatesMap
+	// try to find template file named "<channel>.tmpl" and update the promTemplatesMap
 	for channel, t := range promMsgTemplatesMap {
 		var channelTmpl string
 
 		tmplFile := path.Join(tmplDir, fmt.Sprintf("%s.%s", channel, "tmpl"))
-		if tmplLang != "" && tmplLang != "en" {
-			tmplFile = path.Join(tmplDir, fmt.Sprintf("%s.%s.%s", channel, tmplLang, "tmpl"))
-		}
 		b, err := os.ReadFile(tmplFile)
 		if os.IsNotExist(err) {
-			// case 1: <channel>[.<lang>].tmpl file does not exist, and not specified custom default
+			// case 1: <channel>.tmpl file does not exist, and not specified custom default
 			// then will use the builtin default, continue the next loop
 			if tmplDefault == "" {
 				continue
 			}
-			// case 2: <channel>[.<lang>].tmpl file does not exist, but specified custom default
+			// case 2: <channel>.tmpl file does not exist, but specified custom default
 			// then will use custom default as tmpl
 			channelTmpl = customDefaultTmpl
 		} else {
-			// case 3: <channel>[.<lang>].tmpl exists, but read failed, error and return
+			// case 3: <channel>.tmpl exists, but read failed, error and return
 			if err != nil {
 				msg := fmt.Sprintf("read file (%s) failed, err: %s", tmplFile, err)
 				return errors.New(msg)
 			}
-			// case 4: <channel>[.<lang>].tmpl exists, and read succeeded, use file content as tmpl
+			// case 4: <channel>.tmpl exists, and read succeeded, use file content as tmpl
 			channelTmpl = string(b)
 		}
 
@@ -247,11 +239,11 @@ type TemplateSource interface {
 
 // LoadTemplatesFromSource 从模板存储（而非文件系统）热重载各渠道模板。
 // 语义与 LoadTemplate 的渠道循环一致：
-//   - 存储中存在 <channel>[.<lang>].tmpl → 用其内容更新该渠道模板
+//   - 存储中存在 <channel>.tmpl → 用其内容更新该渠道模板
 //   - 存储中不存在 → 保持当前模板不变
 //
 // 供 Web UI 保存/删除模板后触发，SQLite 与 JSON 两种存储后端统一生效。
-func LoadTemplatesFromSource(src TemplateSource, tmplLang string) error {
+func LoadTemplatesFromSource(src TemplateSource) error {
 	names, err := src.List()
 	if err != nil {
 		return fmt.Errorf("list templates from source failed, err: %s", err)
@@ -263,9 +255,6 @@ func LoadTemplatesFromSource(src TemplateSource, tmplLang string) error {
 
 	for channel, t := range promMsgTemplatesMap {
 		name := fmt.Sprintf("%s.%s", channel, "tmpl")
-		if tmplLang != "" && tmplLang != "en" {
-			name = fmt.Sprintf("%s.%s.%s", channel, tmplLang, "tmpl")
-		}
 		if !available[name] {
 			// 该渠道无自定义模板，保持当前（内置或已加载）模板
 			continue
