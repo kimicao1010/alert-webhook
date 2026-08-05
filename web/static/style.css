@@ -115,6 +115,15 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:13p
 .pv-row:last-child{border-bottom:none}
 .pv-label{width:84px;flex:none;font-size:11px;color:var(--faint);font-family:var(--mono);padding-top:2px}
 .pv-val{flex:1;white-space:pre-wrap}
+.pv-title{font-size:15px;font-weight:700;color:var(--ink);white-space:normal}
+.pv-md{font-family:var(--sans);font-size:13px;line-height:1.7;white-space:normal}
+.pv-md h1,.pv-md h2,.pv-md h3{font-size:14px;font-weight:700;margin:6px 0 2px;color:var(--ink)}
+.pv-md p{margin:2px 0}
+.pv-md ul{margin:4px 0 4px 18px;padding:0}
+.pv-md li{margin:1px 0}
+.pv-md code{background:var(--panel2);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-family:var(--mono);font-size:11.5px;color:var(--accent)}
+.pv-md strong{color:var(--ink)}
+.pv-md a{color:var(--accent)}
 .pv-error{color:var(--err);font-family:var(--mono);font-size:12px}
 
 /* ===== 发送结果页 ===== */

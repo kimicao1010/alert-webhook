@@ -460,10 +460,11 @@ async function doPreview() {
       method: 'POST',
       body: JSON.stringify({ content, alert: SAMPLE_ALERT }),
     });
-    const rows = ['prom.title', 'prom.text', 'prom.markdown']
-      .filter((k) => out[k] != null)
-      .map((k) => `<div class="pv-row"><div class="pv-label">${k.replace('prom.', '')}</div><div class="pv-val">${esc(out[k])}</div></div>`)
-      .join('');
+    const rows = [
+      out['prom.title'] != null ? `<div class="pv-row"><div class="pv-label">title</div><div class="pv-val pv-title">${esc(out['prom.title'])}</div></div>` : '',
+      out['prom.text'] != null ? `<div class="pv-row"><div class="pv-label">text</div><div class="pv-val">${esc(out['prom.text'])}</div></div>` : '',
+      out['prom.markdown'] != null ? `<div class="pv-row"><div class="pv-label">markdown</div><div class="pv-val pv-md">${renderMarkdownLite(esc(out['prom.markdown']))}</div></div>` : '',
+    ].join('');
     $('tmpl-preview').innerHTML = rows || '<div class="empty">模板中未定义可预览的段（prom.title/text/markdown）</div>';
   } catch (e) {
     $('tmpl-preview').innerHTML = `<div class="pv-error">渲染失败：${esc(e.message)}</div>`;
@@ -1011,9 +1012,11 @@ async function doCtPreview() {
       method: 'POST',
       body: JSON.stringify({ content, fieldMap, rawBody }),
     });
-    const rows = ['title', 'text', 'markdown']
-      .map((k) => `<div class="pv-row"><div class="pv-label">${k}</div><div class="pv-val">${esc(out[k] || '')}</div></div>`)
-      .join('');
+    const rows = [
+      out.title ? `<div class="pv-row"><div class="pv-label">title</div><div class="pv-val pv-title">${esc(out.title)}</div></div>` : '',
+      out.text ? `<div class="pv-row"><div class="pv-label">text</div><div class="pv-val">${esc(out.text)}</div></div>` : '',
+      out.markdown ? `<div class="pv-row"><div class="pv-label">markdown</div><div class="pv-val pv-md">${renderMarkdownLite(esc(out.markdown))}</div></div>` : '',
+    ].join('');
     $('ct-preview').innerHTML = rows || '<div class="empty small">（空渲染结果）</div>';
   } catch (e) {
     $('ct-preview').innerHTML = `<div class="res-box fail">✗ ${esc(e.message)}</div>`;
