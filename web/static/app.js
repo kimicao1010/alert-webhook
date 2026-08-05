@@ -678,7 +678,10 @@ document.querySelectorAll('.tmpl-tab').forEach((btn) => btn.addEventListener('cl
   const isCustom = btn.dataset.tmpltab === 'custom';
   $('tmpl-panel-builtin').style.display = isCustom ? 'none' : 'block';
   $('tmpl-panel-custom').style.display = isCustom ? 'block' : 'none';
-  if (isCustom) loadCustomTemplatePanel();
+  if (isCustom) {
+    loadCustomTemplatePanel();
+    if (!ctRecordsLoaded) { ctRecordsLoaded = true; loadCtRecords(); }
+  }
 }));
 
 function renderCtFieldMap() {
@@ -726,6 +729,41 @@ async function loadCustomTemplatePanel() {
   if (!sel.value) return;
   await loadCustomTemplateFor(sel.value);
 }
+
+// 从发送记录选择源报文：列出最近带 raw 的记录，点击载入该条报文
+let ctRecordsLoaded = false;
+async function loadCtRecords() {
+  const box = $('ct-records');
+  if (!box) return;
+  try {
+    const data = await api('/api/sends?limit=20');
+    const records = (data.records || []).filter((r) => r.raw);
+    if (records.length === 0) {
+      box.innerHTML = '<div class="empty small">暂无带源报文的发送记录<br><span style="font-size:11px">可先到「测试发送」发一条，或手动粘贴下方 JSON</span></div>';
+      return;
+    }
+    box.innerHTML = records.map((r, i) => {
+      const pill = r.status === 'success' ? '<span class="pill succ">成功</span>' : '<span class="pill fail">失败</span>';
+      return `<div class="ct-record" data-i="${i}">
+        <span class="cr-time">${fmtTime(r.timestamp)}</span>
+        <span class="chan-tag">${esc(r.channel)}</span>${r.kind === 'test' ? '<span class="pill" style="background:var(--warn-bg);color:var(--warn)">测试</span>' : ''}
+        ${pill}
+        <span class="cr-title">${esc((r.title || r.error || '（无内容）').slice(0, 40))}</span>
+        <span class="cr-pick">使用此报文 →</span>
+      </div>`;
+    }).join('');
+    box.querySelectorAll('.ct-record').forEach((el) => el.addEventListener('click', () => {
+      applyRawBody(records[Number(el.dataset.i)].raw);
+      el.classList.add('picked');
+      box.querySelectorAll('.ct-record.picked').forEach((p) => { if (p !== el) p.classList.remove('picked'); });
+      toast('已载入该记录报文，点选下方字段生成映射');
+    }));
+  } catch (e) {
+    box.innerHTML = '<div class="empty small">加载失败：' + esc(e.message) + '</div>';
+  }
+}
+
+$('btn-refresh-ct-records').addEventListener('click', () => { loadCtRecords(); });
 
 async function loadCustomTemplateFor(channel) {
   $('ct-channel').value = channel;
