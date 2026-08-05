@@ -111,6 +111,26 @@ function fmtRaw(raw) {
   }
 }
 
+// listJsonPaths：递归遍历 JSON 节点，返回 [{path, value}] 叶字段列表。
+// 路径语法与后端 extractByPath 一致：a.b.c + a[0].b；数组按下标展开。
+function listJsonPaths(node, prefix = '', out = []) {
+  if (node === null || typeof node !== 'object') return out;
+  if (Array.isArray(node)) {
+    node.forEach((v, i) => listJsonPaths(v, prefix + '[' + i + ']', out));
+    return out;
+  }
+  for (const k of Object.keys(node)) {
+    const p = prefix ? prefix + '.' + k : k;
+    const v = node[k];
+    if (v !== null && typeof v === 'object') {
+      listJsonPaths(v, p, out);
+    } else {
+      out.push({ path: p, value: v });
+    }
+  }
+  return out;
+}
+
 /* ================= Tab 切换 ================= */
 
 function switchTab(tab) {
@@ -768,6 +788,58 @@ function scheduleCtPreview() {
   clearTimeout(ctPreviewTimer);
   ctPreviewTimer = setTimeout(doCtPreview, 300);
 }
+
+// applyRawBody：统一载入源报文（粘贴框 / 发送记录选择器 / 详情页按钮共用），
+// 同步 state 并触发字段提取与渲染预览。
+function applyRawBody(raw) {
+  if (!raw) return;
+  $('ct-rawbody').value = raw;
+  state.ctRawBody = raw;
+  scheduleCtFields();   // 字段提取（300ms 防抖）
+  scheduleCtPreview();  // 渲染预览（300ms 防抖）
+}
+
+// 字段提取器：解析 rawBody 列出可提取字段，点击自动追加字段映射行
+let ctFieldsTimer = null;
+function scheduleCtFields() {
+  clearTimeout(ctFieldsTimer);
+  ctFieldsTimer = setTimeout(renderCtFields, 300);
+}
+function renderCtFields() {
+  const box = $('ct-fields');
+  if (!box) return; // HTML 容器未挂载时静默跳过
+  let body = null;
+  try { body = JSON.parse($('ct-rawbody').value || '{}'); } catch (e) {
+    box.innerHTML = '<div class="empty small">JSON 解析失败，请检查粘贴内容</div>';
+    return;
+  }
+  const fields = listJsonPaths(body);
+  if (fields.length === 0) {
+    box.innerHTML = '<div class="empty small">未发现可提取的字段</div>';
+    return;
+  }
+  box.innerHTML = fields.map((f) => `
+    <div class="ct-field" data-path="${esc(f.path)}">
+      <code class="cf-path">${esc(f.path)}</code>
+      <span class="cf-val">${esc(f.value == null ? 'null' : String(f.value).slice(0, 30))}</span>
+      <span class="cf-add">＋</span>
+    </div>`).join('');
+  box.querySelectorAll('.ct-field').forEach((el) => el.addEventListener('click', () => addFieldMapFromPath(el.dataset.path)));
+}
+
+// 自动命名：末段去数组下标；重名加序号
+function defaultVarName(path, existing) {
+  const seg = path.replace(/\[\d+\]/g, '').split('.').pop() || 'field';
+  let name = seg; let n = 2;
+  while (existing.includes(name)) { name = seg + n; n++; }
+  return name;
+}
+function addFieldMapFromPath(path) {
+  const existing = ctFieldMap.map((r) => r.name);
+  ctFieldMap.push({ name: defaultVarName(path, existing), path });
+  renderCtFieldMap();
+  scheduleCtPreview();
+}
 async function doCtPreview() {
   const content = $('ct-editor').value;
   const rawBody = $('ct-rawbody').value;
@@ -791,7 +863,11 @@ async function doCtPreview() {
   }
 }
 $('ct-editor').addEventListener('input', scheduleCtPreview);
-$('ct-rawbody').addEventListener('input', scheduleCtPreview);
+$('ct-rawbody').addEventListener('input', () => {
+  state.ctRawBody = $('ct-rawbody').value;
+  scheduleCtPreview();
+  scheduleCtFields();
+});
 
 /* ================= 初始化 ================= */
 
