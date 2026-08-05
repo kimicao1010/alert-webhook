@@ -213,8 +213,8 @@ function renderChannelList() {
     const isCfg = configured.has(ch);
     const hasCt = state.ctChannels.includes(ch);
     const tmplBadge = hasCt
-      ? '<span class="badge blue" title="已配置自定义模板（替换内置模板）">自定义</span>'
-      : '<span class="badge gray" title="使用内置模板">内置模板</span>';
+      ? `<span class="badge blue" data-gotmpl="${esc(ch)}" title="已配置自定义模板（替换内置模板），点击管理">自定义</span>`
+      : `<span class="badge gray" data-gotmpl="${esc(ch)}" title="使用内置模板，点击新建自定义模板">内置模板</span>`;
     return `<div class="chan ${ch === state.curChannel ? 'active' : ''}" data-channel="${esc(ch)}">
       <div class="top"><span class="cn">${meta ? esc(meta.name) : esc(ch)}</span>
       <span class="badge ${isCfg ? 'green' : 'gray'}">${isCfg ? '已配置' : '未配置'}</span>${tmplBadge}</div>
@@ -225,6 +225,13 @@ function renderChannelList() {
     state.curChannel = el.dataset.channel;
     renderChannelList();
     renderChannelForm();
+  }));
+  // 模板徽章点击：跳转模板页自定义 tab 并选中该渠道（不触发行选中）
+  box.querySelectorAll('[data-gotmpl]').forEach((b) => b.addEventListener('click', (e) => {
+    e.stopPropagation();
+    switchTab('templates');
+    openCustomTmplTab();
+    loadCustomTemplateFor(b.dataset.gotmpl);
   }));
 }
 
