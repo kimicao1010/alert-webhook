@@ -329,6 +329,14 @@ async function loadTemplates() {
   } catch (e) { /* 401 已提示 */ }
 }
 
+// tmplChannelOf：从模板文件名解析所属渠道（feishu.tmpl / feishu.zh.tmpl → feishu）；
+// 无渠道前缀（如 custom.tmpl，由 --tmpl-dir/--tmpl-name 加载）返回 null。
+function tmplChannelOf(name) {
+  const base = name.replace(/\.zh\.tmpl$/, '').replace(/\.tmpl$/, '');
+  if (!base || base === name) return null;
+  return base;
+}
+
 function renderTemplateList() {
   const box = $('tmpl-list');
   $('tmpl-count').textContent = state.templates.length + ' 个';
@@ -338,8 +346,12 @@ function renderTemplateList() {
   }
   box.innerHTML = state.templates.map((t) => {
     const lang = t.endsWith('.zh.tmpl') ? 'zh' : (t.endsWith('.tmpl') ? 'en' : '');
+    const ch = tmplChannelOf(t);
+    const badge = ch
+      ? `<span class="chan-tag" title="此模板用于 ${esc(ch)} 渠道">${esc(ch)}</span>`
+      : `<span class="chan-tag gray" title="由 --tmpl-dir/--tmpl-name 加载，作用于所有渠道">通用</span>`;
     return `<div class="tmpl-file ${t === state.curTmpl ? 'active' : ''}" data-tmpl="${esc(t)}">
-      <span>${esc(t)}</span>${lang ? `<span class="lang">${lang}</span>` : ''}</div>`;
+      <span>${esc(t)}</span>${badge}${lang ? `<span class="lang">${lang}</span>` : ''}</div>`;
   }).join('');
   box.querySelectorAll('.tmpl-file').forEach((el) => el.addEventListener('click', () => {
     state.curTmpl = el.dataset.tmpl;

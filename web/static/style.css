@@ -94,6 +94,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:13p
 .tmpl{display:grid;grid-template-columns:220px 1fr;gap:20px;align-items:start}
 .tmpl-side{display:flex;flex-direction:column;gap:6px}
 .tmpl-file{display:flex;align-items:center;justify-content:space-between;padding:8px 11px;border-radius:var(--r);border:1px solid var(--border);cursor:pointer;font-size:12.5px;font-family:var(--mono)}
+.tmpl-file .chan-tag{font-size:10px;padding:1px 6px;border-radius:4px;background:var(--accent-bg);color:var(--accent);font-family:var(--sans);white-space:nowrap}
+.tmpl-file .chan-tag.gray{background:var(--panel2);color:var(--faint)}
 .tmpl-file:hover{background:var(--panel2)}
 .tmpl-file.active{border-color:var(--accent);background:var(--accent-bg);color:var(--accent)}
 .tmpl-file .lang{font-size:10px;color:var(--faint);font-family:var(--sans)}
