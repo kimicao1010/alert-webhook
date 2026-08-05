@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	restful "github.com/emicklei/go-restful/v3"
@@ -30,13 +31,16 @@ type Controller struct {
 	customTmplStore store.CustomTemplateStore
 	// failoverDisabled 为 true 时关闭渠道故障转移（主渠道失败不做备用渠道重试）。
 	failoverDisabled bool
+	// retryBackoffs 发送重试的固定间隔序列（默认 1s/2s/3s；测试可注入毫秒级）。
+	retryBackoffs []time.Duration
 }
 
 func NewController(signature string) *Controller {
 	return &Controller{
-		signature: signature,
-		logger:    slog.Default(),
-		dataDir:   "/data",
+		signature:     signature,
+		logger:        slog.Default(),
+		dataDir:       "/data",
+		retryBackoffs: []time.Duration{1 * time.Second, 2 * time.Second, 3 * time.Second},
 	}
 }
 
@@ -203,6 +207,16 @@ func (c *Controller) send(request *restful.Request, response *restful.Response) 
 
 	sender, err := senderCreator(cfg)
 	if err != nil {
+		// sender 构造失败（如无凭据）：渠道不可用，尝试故障转移；无备用则失败
+		if !c.failoverDisabled {
+			fallbackErr, used := c.sendWithFailover(channelType, &models.Payload{Raw: string(raw)})
+			if fallbackErr == nil {
+				c.logger.Info("send succeeded via failover (sender create failed)", "primary", channelType, "used", used)
+				c.recordSend(channelType, "success", "", promMsg, &models.Payload{Raw: string(raw)}, 0)
+				response.WriteHeader(http.StatusNoContent)
+				return
+			}
+		}
 		errmsg := fmt.Sprintf("Err: create sender failed, %v", err)
 		c.log(errmsg)
 		// sender 构造失败（如无凭据）也落记录，保留原始调用体便于溯源
@@ -238,6 +252,22 @@ func (c *Controller) send(request *restful.Request, response *restful.Response) 
 		return sender.Send(payload)
 	})
 	if sendErr != nil {
+		// 主渠道重试耗尽：立即尝试备用渠道（故障转移）
+		if !c.failoverDisabled {
+			fallbackErr, used := c.sendWithFailover(channelType, payload)
+			if fallbackErr == nil {
+				c.logger.Info("send succeeded via failover", "primary", channelType, "used", used)
+				c.recordSend(channelType, "success", "", promMsg, payload, time.Since(sendStart))
+				response.WriteHeader(http.StatusNoContent)
+				return
+			}
+			// 全部备用渠道也失败：记录失败（含 failover exhausted）
+			errmsg := fmt.Sprintf("Err: sender send failed, %v (failover exhausted: %v)", sendErr, fallbackErr)
+			c.log(errmsg)
+			c.recordSend(channelType, "failure", errmsg, promMsg, payload, time.Since(sendStart))
+			_ = response.WriteHeaderAndJson(http.StatusInternalServerError, errmsg, restful.MIME_JSON)
+			return
+		}
 		errmsg := fmt.Sprintf("Err: sender send failed, %v", sendErr)
 		c.log(errmsg)
 		c.recordSend(channelType, "failure", sendErr.Error(), promMsg, payload, time.Since(sendStart))
@@ -248,6 +278,56 @@ func (c *Controller) send(request *restful.Request, response *restful.Response) 
 	c.recordSend(channelType, "success", "", promMsg, payload, time.Since(sendStart))
 	c.logf("Send succeed: %s\n", request.Request.URL.String())
 	response.WriteHeader(http.StatusNoContent)
+}
+
+// sendViaChannel 用指定渠道发送 payload。
+// 固定间隔序列重试（默认 1s/2s/3s，总 4 次），供主渠道与备用渠道共用。
+func (c *Controller) sendViaChannel(channel string, payload *models.Payload) error {
+	cfg, err := c.channelStore.Get(channel)
+	if err != nil {
+		return fmt.Errorf("read channel config failed: %w", err)
+	}
+	creator, exists := senders.ChannelsSenderCreatorMap[channel]
+	if !exists {
+		return fmt.Errorf("not supported channel of (%s)", channel)
+	}
+	sender, err := creator(cfg)
+	if err != nil {
+		return fmt.Errorf("create sender failed: %w", err)
+	}
+	return utils.Retry(4, c.retryBackoffs, func(attempt int, err error, backoff time.Duration) {
+		c.logger.Warn("send failed, retrying", "channel", channel, "attempt", attempt, "err", err.Error(), "next_backoff", backoff.String())
+	}, func() error { return sender.Send(payload) })
+}
+
+// failoverChannels 返回除主渠道外的已配置渠道列表（按存储顺序）。
+func (c *Controller) failoverChannels(primary string) []string {
+	list, err := c.channelStore.List()
+	if err != nil {
+		return nil
+	}
+	res := []string{}
+	for _, ch := range list {
+		if ch != primary {
+			res = append(res, ch)
+		}
+	}
+	return res
+}
+
+// sendWithFailover 遍历备用渠道逐个尝试发送，返回 (聚合错误, 实际成功渠道)。
+// 任一备用渠道成功立即返回 (nil, 该渠道)；全部失败返回聚合错误。
+func (c *Controller) sendWithFailover(primary string, payload *models.Payload) (error, string) {
+	var errs []string
+	for _, ch := range c.failoverChannels(primary) {
+		if err := c.sendViaChannel(ch, payload); err != nil {
+			errs = append(errs, fmt.Sprintf("%s: %v", ch, err))
+			c.logger.Warn("failover channel failed", "channel", ch, "err", err.Error())
+			continue
+		}
+		return nil, ch
+	}
+	return fmt.Errorf("all failover channels failed: %s", strings.Join(errs, "; ")), ""
 }
 
 // buildPayload 构造发送 payload：渠道有自定义模板时用字段映射渲染，否则用内置模板。
