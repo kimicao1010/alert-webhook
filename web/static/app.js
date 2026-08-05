@@ -428,6 +428,12 @@ async function loadSends() {
 function renderSends() {
   const { records, total, offset, limit } = state.sends;
 
+  // 记录当前展开的详情行（按 timestamp|channel|kind 标识），渲染后恢复，避免自动刷新收起
+  const tbody = $('sends-tbody');
+  const expandedKeys = new Set(
+    [...tbody.querySelectorAll('.row-detail.open')].map((d) => d.dataset.key).filter(Boolean)
+  );
+
   // 统计卡
   const succ = records.filter((r) => r.status === 'success').length;
   const fail = records.filter((r) => r.status === 'failure').length;
@@ -440,7 +446,6 @@ function renderSends() {
     <div class="stat"><span class="k">失败</span><span class="v fail">${fail}</span><span class="delta">本页</span></div>
     <div class="stat"><span class="k">平均耗时</span><span class="v warn">${avgMs}ms</span><span class="delta">本页</span></div>`;
 
-  const tbody = $('sends-tbody');
   if (records.length === 0) {
     tbody.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="big">◷</div>暂无发送记录</div></td></tr>';
   } else {
@@ -455,7 +460,7 @@ function renderSends() {
         <td>${r.error ? `<span class="err-text" title="${esc(r.error)}">${esc(r.error)}</span>` : '—'}</td>
         <td><span class="chev">▸</span></td>
       </tr>
-      <tr class="row-detail" data-detail="${i}">
+      <tr class="row-detail" data-detail="${i}" data-key="${r.timestamp}|${esc(r.channel)}|${r.kind || ''}">
         <td colspan="7"><div class="detail-body">
           <div class="detail-grid">
             <div class="detail-item"><div class="dk">渠道</div><div class="dv">${esc(r.channel)}</div></div>
@@ -481,6 +486,16 @@ function renderSends() {
       tbody.querySelectorAll('.chev').forEach((c) => (c.textContent = '▸'));
       if (!wasOpen) { detail.classList.add('open'); chev.textContent = '▾'; }
     }));
+    // 恢复自动刷新前展开的详情行（按 data-key 匹配），避免 5s 刷新把详情收起
+    if (expandedKeys.size > 0) {
+      tbody.querySelectorAll('.row-detail').forEach((d) => {
+        if (expandedKeys.has(d.dataset.key)) d.classList.add('open');
+      });
+      tbody.querySelectorAll('tr[data-idx]').forEach((row) => {
+        const detail = tbody.querySelector(`.row-detail[data-detail="${row.dataset.idx}"]`);
+        if (detail && detail.classList.contains('open')) row.querySelector('.chev').textContent = '▾';
+      });
+    }
   }
 
   const pages = Math.max(1, Math.ceil(total / limit));
