@@ -7,12 +7,14 @@
 ## ✨ 功能特性
 
 - **多渠道推送**：企业微信群机器人、钉钉（支持加签）、飞书、企业微信应用
-- **可视化控制台**：深色运维 UI（`go:embed` 内嵌），渠道凭据 CRUD、模板所见即所得编辑、发送记录查询、测试发送
+- **可视化控制台**：深色运维 UI（`go:embed` 内嵌），**登录弹窗认证**（token 不明文展示）、渠道凭据 CRUD、模板所见即所得编辑、发送记录查询、测试发送
+- **渠道故障转移**：主渠道发送失败自动切换已配置备用渠道代发，消息内插入代发提示，历史记录醒目标记「🔄 代发（原渠道）」——保障告警送达
 - **自定义模板 + 字段映射**：适配任意调用源 JSON 格式——声明「模板变量名 = JSON 路径」，模板内 `{{ .Custom.xxx }}` 访问
+- **一套默认模板（全渠道）**：内置美观模板（告警 🚨 / 恢复 ✅ 双状态、severity 分级徽标），各渠道共用；`--tmpl-lang` 语言机制已移除
 - **字段提取器**：从发送记录原始报文**一键点选字段**生成映射，模板生产零门槛
 - **内容溯源**：发送记录保存原始调用体（raw）+ 渲染结果（title/text/markdown），成功/失败均入库
 - **SQLite 默认存储**：单文件、纯 Go 驱动（`modernc.org/sqlite`，无 CGO，保持交叉编译）
-- **生产加固**：Bearer 认证、结构化日志、发送重试（指数退避）、errcode 校验、请求体限制
+- **生产加固**：Bearer 认证、结构化日志、发送重试（固定间隔 1s/2s/3s）、errcode 校验、请求体限制
 
 ---
 
@@ -39,10 +41,23 @@ $ ./alertmanager-webhook-adapter -h
 
 | 页面 | 功能 |
 |------|------|
-| **渠道配置** | 凭据 CRUD（含钉钉加签密钥），凭据仅存服务端，不出现于 URL / 日志 |
-| **模板编辑** | 内置模板（实时预览）+ 自定义模板（字段映射 + 字段提取器）双标签页 |
-| **发送结果** | 记录持久化查询（渠道/状态筛选、分页、详情含 raw 溯源） |
-| **测试发送** | 向已配置渠道发测试消息，可关联模板 |
+| **登录** | 访问控制台需输入 `--auth-token`，登录弹窗密码输入，**已认证状态不显示 token 明文**（可随时「切换 Token」） |
+| **渠道配置** | 凭据 CRUD（含钉钉加签密钥），凭据仅存服务端，不出现于 URL / 日志；渠道表单含「模板」区块（当前模板状态 + 编辑/新建入口） |
+| **模板编辑** | 内置模板（实时预览）+ 自定义模板（字段映射 + 字段提取器）双标签页，列表分组「内置模板 / 自定义模板」 |
+| **发送结果** | 记录持久化查询（渠道/状态筛选、分页、详情含 raw 溯源）；**故障转移代发记录醒目标记** |
+| **测试发送** | 向已配置渠道发测试消息，可关联内置模板或「✨ 自定义模板」 |
+
+![登录弹窗](docs/ui-login-modal.png)
+
+### 渠道故障转移
+
+主渠道发送失败（固定间隔 1s/2s/3s 重试 4 次耗尽）后，自动按序尝试其他**已配置**渠道代发：
+
+- **代发提示**：备用渠道收到的消息尾部自动插入 `> ⚠️ 故障转移：渠道 <原渠道> 发送失败，本消息由备用渠道 <代发渠道> 代发`
+- **记录标记**：历史记录中代发成功条目标记「🔄 代发（原 <渠道>）」，详情区高亮显示「⚠️ 故障转移代发：原渠道 <渠道> 发送失败，本消息由 <渠道> 代发」
+- **开关**：默认启用；`--no-failover` 关闭（主渠道失败直接返回错误，不做代发）
+
+![故障转移记录标记](docs/ui-failover-record.png)
 
 ### 自定义模板（字段映射）
 
@@ -182,13 +197,13 @@ Flags:
   -s, --signature string        the signature (default "未知")
   -n, --tmpl-default string     the default tmpl name
   -d, --tmpl-dir string         the tmpl dir
-      --tmpl-lang string        the language for template filename
   -t, --tmpl-name string        the tmpl name
       --data-dir string         data directory for channel configs, templates and send records (default "/data")
       --sqlite-path string      path to SQLite database file (default: <data-dir>/adapter.db)
       --use-data-dir            use legacy JSON data-dir storage instead of SQLite (debug only)
       --web-enabled             enable web UI and management API (default true)
       --auth-token string       shared bearer token for request authentication (empty = disabled)
+      --no-failover             disable channel failover (send failure not retried on other configured channels)
       --log-level string        log level: debug/info/warn/error (default "info")
       --log-format string       log format: text/json (default "text")
 ```
@@ -210,8 +225,6 @@ Flags:
 - `prom.title`
 - `prom.text`
 - `prom.markdown`
-
-`--tmpl-lang <lang>` 可改变加载规则（加载 `<channel>.<lang>.tmpl` 等命名文件）；内置 `en`/`zh` 两种语言，默认 `en`。
 
 ### AlertInstance 如何确定？
 
