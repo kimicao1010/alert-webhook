@@ -264,6 +264,14 @@ function renderChannelForm() {
       return `<div class="field"><label>${f.label} ${f.required ? '<span class="req">*</span>' : ''}</label>
         <input data-key="${f.key}" value="${esc(val)}" /></div>`;
     }).join('') + `
+    <div class="chan-tmpl-block">
+      <div class="block-label">模板</div>
+      <div class="chan-tmpl-status" id="chan-tmpl-status">—</div>
+      <div class="block-actions">
+        <button class="btn mini primary" id="btn-manage-tmpl">编辑模板</button>
+        <button class="btn mini" id="btn-new-tmpl">新建自定义模板</button>
+      </div>
+    </div>
     <div class="form-actions">
       <button class="btn primary" id="btn-save-chan">保存配置</button>
       <button class="btn" id="btn-test-chan">测试发送</button>
@@ -279,7 +287,33 @@ function renderChannelForm() {
       switchTab('test');
       $('test-channel').value = ch;
     });
+    // 模板区块：显示当前渠道模板状态 + 跳转模板页
+    renderChanTmplStatus(ch);
+    $('btn-manage-tmpl').addEventListener('click', () => {
+      switchTab('templates');
+      openCustomTmplTab();
+      loadCustomTemplateFor(ch);
+    });
+    $('btn-new-tmpl').addEventListener('click', () => {
+      switchTab('templates');
+      openCustomTmplTab();
+      loadCustomTemplateFor(ch);
+      toast('在模板页配置字段映射与内容后保存');
+    });
   }).catch(() => {});
+}
+
+// renderChanTmplStatus：渠道页模板状态（复用查询逻辑，输出到 #chan-tmpl-status）
+async function renderChanTmplStatus(channel) {
+  const el = $('chan-tmpl-status');
+  if (!el || !channel) { if (el) el.textContent = '—'; return; }
+  try {
+    await api(`/api/custom-templates/${encodeURIComponent(channel)}`);
+    el.innerHTML = `<span class="pill succ">自定义模板</span><span class="hint">（替换内置模板）</span>`;
+  } catch (e) {
+    if (e.message === 'unauthorized') return;
+    el.innerHTML = `<span class="pill">内置模板</span><span class="hint">（可新建自定义模板替换）</span>`;
+  }
 }
 
 function collectForm(form) {
