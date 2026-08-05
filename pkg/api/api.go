@@ -228,7 +228,7 @@ func (c *Controller) send(request *restful.Request, response *restful.Response) 
 	}
 
 	sendStart := time.Now()
-	sendErr := utils.Retry(4, 1*time.Second, func(attempt int, err error, backoff time.Duration) {
+	sendErr := utils.Retry(4, []time.Duration{1 * time.Second, 2 * time.Second, 3 * time.Second}, func(attempt int, err error, backoff time.Duration) {
 		c.logger.Warn("send failed, retrying",
 			"attempt", attempt,
 			"err", err.Error(),
