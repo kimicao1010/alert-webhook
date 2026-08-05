@@ -493,7 +493,7 @@ function renderSends() {
           ${r.title ? `<div class="detail-block"><div class="db-t">标题 (title)</div><pre>${esc(r.title)}</pre></div>` : ''}
           ${r.text ? `<div class="detail-block"><div class="db-t">文本 (text)</div><pre>${esc(r.text)}</pre></div>` : ''}
           ${r.markdown ? `<div class="detail-block"><div class="db-t">Markdown</div><pre>${esc(r.markdown)}</pre></div>` : ''}
-          ${r.raw ? `<div class="detail-block"><div class="db-t">原始调用记录 (raw)</div><pre class="raw-json">${esc(fmtRaw(r.raw))}</pre></div>` : ''}
+          ${r.raw ? `<div class="detail-block"><div class="db-t">原始调用记录 (raw)<button class="btn mini" data-mkctpl="${i}" style="float:right">▦ 用此报文创建自定义模板</button></div><pre class="raw-json">${esc(fmtRaw(r.raw))}</pre></div>` : ''}
         </div></td>
       </tr>`;
     }).join('');
@@ -505,6 +505,18 @@ function renderSends() {
       tbody.querySelectorAll('.row-detail.open').forEach((d) => d.classList.remove('open'));
       tbody.querySelectorAll('.chev').forEach((c) => (c.textContent = '▸'));
       if (!wasOpen) { detail.classList.add('open'); chev.textContent = '▾'; }
+    }));
+    // 详情页 raw 块按钮：用此报文创建自定义模板（跳转模板页自定义 tab 并载入）
+    tbody.querySelectorAll('[data-mkctpl]').forEach((btn) => btn.addEventListener('click', (e) => {
+      e.stopPropagation(); // 不触发行展开
+      const r = state.sends.records[Number(btn.dataset.mkctpl)];
+      if (!r || !r.raw) return;
+      state.pendingCustomTemplate = { channel: r.channel, rawBody: r.raw };
+      switchTab('templates');
+      openCustomTmplTab();
+      loadCustomTemplateFor(r.channel);
+      applyRawBody(r.raw);
+      toast('已载入发送记录报文，点选字段生成映射');
     }));
     // 恢复自动刷新前展开的详情行（按 data-key 匹配），避免 5s 刷新把详情收起
     if (expandedKeys.size > 0) {
@@ -684,6 +696,13 @@ document.querySelectorAll('.tmpl-tab').forEach((btn) => btn.addEventListener('cl
   }
 }));
 
+// openCustomTmplTab：程序化切到自定义模板 tab（供发送记录详情按钮等跳转使用）
+function openCustomTmplTab() {
+  document.querySelectorAll('.tmpl-tab').forEach((b) => b.classList.toggle('active', b.dataset.tmpltab === 'custom'));
+  $('tmpl-panel-builtin').style.display = 'none';
+  $('tmpl-panel-custom').style.display = 'block';
+}
+
 function renderCtFieldMap() {
   const box = $('ct-fieldmap');
   if (ctFieldMap.length === 0) {
@@ -709,6 +728,12 @@ function renderCtFieldMap() {
   box.querySelectorAll('.fm-path').forEach((inp) => inp.addEventListener('input', () => {
     ctFieldMap[Number(inp.closest('.fm-row').dataset.i)].path = inp.value.trim();
     scheduleCtPreview();
+  }));
+  // 行内"从报文选择"提示（点击字段提取区字段即可自动追加映射行）
+  box.querySelectorAll('.fm-path').forEach((inp) => inp.addEventListener('focus', () => {
+    if ($('ct-fields') && $('ct-fields').querySelector('.ct-field')) {
+      toast('提示：点击上方字段列表中的字段可自动添加映射', false);
+    }
   }));
 }
 
