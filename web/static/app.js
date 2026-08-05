@@ -861,10 +861,11 @@ async function loadCtRecords() {
 
 $('btn-refresh-ct-records').addEventListener('click', () => { loadCtRecords(); });
 
-// renderCtStatus：显示当前渠道模板生效状态（内置 / 自定义）
+// renderCtStatus：显示当前渠道模板生效状态（内置 / 自定义）；无渠道时显示占位
 async function renderCtStatus(channel) {
   const el = $('ct-status');
-  if (!el || !channel) return;
+  if (!el) return;
+  if (!channel) { el.textContent = '—'; return; }
   try {
     await api(`/api/custom-templates/${encodeURIComponent(channel)}`);
     el.innerHTML = `<span class="dot ok"></span>当前渠道 <b>${esc(channel)}</b> 使用：<span class="pill succ">自定义模板</span>
@@ -926,9 +927,15 @@ $('btn-del-ct').addEventListener('click', async () => {
   if (!confirm(`确认删除渠道 ${channel} 的自定义模板？删除后将回退到内置模板。`)) return;
   try {
     await api(`/api/custom-templates/${encodeURIComponent(channel)}`, { method: 'DELETE' });
-    ctFieldMap = DEFAULT_FIELDMAP_ROWS.map(([n, p]) => ({ name: n, path: p }));
+    // 完整重置界面状态：渠道下拉清空重载、编辑器清空、映射恢复默认、状态行重置
+    state.ctChannel = null;
     $('ct-editor').value = '';
+    ctFieldMap = DEFAULT_FIELDMAP_ROWS.map(([n, p]) => ({ name: n, path: p }));
     renderCtFieldMap();
+    renderCtStatus('');
+    $('ct-rawbody').value = SAMPLE_CUSTOM_BODY;
+    await loadCustomTemplatePanel();
+    loadChannels(); // 刷新渠道列表模板徽章
     toast(`已删除：${channel} 回退到内置模板`);
   } catch (e) { toast('删除失败：' + e.message, true); }
 });
