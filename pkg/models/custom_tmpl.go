@@ -43,6 +43,10 @@ func RenderCustomTmpl(content string, fieldMap map[string]string, rawBody []byte
 		{"prom.text", &payload.Text},
 		{"prom.markdown", &payload.Markdown},
 	} {
+		// 模板未定义的段跳过（如渠道只关心 markdown），与内置模板三段齐全时行为一致
+		if tpl.Lookup(section.name) == nil {
+			continue
+		}
 		var buf bytes.Buffer
 		if err := tpl.ExecuteTemplate(&buf, section.name, data); err != nil {
 			return nil, fmt.Errorf("execute %s failed: %w", section.name, err)
