@@ -206,6 +206,11 @@ func (c *Controller) saveTemplate(request *restful.Request, response *restful.Re
 		return
 	}
 	content := body["content"]
+	// 保存前校验模板语法，避免坏模板入库（与自定义模板保存一致）
+	if err := promModels.ValidateTemplateSyntax(content); err != nil {
+		_ = response.WriteHeaderAndJson(http.StatusBadRequest, map[string]string{"error": "template syntax error: " + err.Error()}, restful.MIME_JSON)
+		return
+	}
 	if err := c.tmplStore.Save(name, content); err != nil {
 		c.logger.Warn("save template failed", "name", name, "err", err.Error())
 		_ = response.WriteHeaderAndJson(http.StatusBadRequest, map[string]string{"error": err.Error()}, restful.MIME_JSON)
