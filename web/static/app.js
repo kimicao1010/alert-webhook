@@ -132,6 +132,40 @@ function listJsonPaths(node, prefix = '', out = []) {
   return out;
 }
 
+// renderMarkdownLite：最小 markdown 渲染（输入须已 esc 转义，输出安全 HTML）。
+// 支持：**加粗**、*斜体*、`行内代码`、# 标题（1-3级）、- 列表、[文本](url)、换行。
+function renderMarkdownLite(src) {
+  if (!src) return '';
+  const lines = src.split('\n').map((line) => {
+    const h = line.match(/^(#{1,3})\s+(.*)$/);
+    if (h) return `<h${h[1].length}>${inlineMd(h[2])}</h${h[1].length}>`;
+    const li = line.match(/^[-*]\s+(.*)$/);
+    if (li) return `<li>${inlineMd(li[1])}</li>`;
+    return `<p>${inlineMd(line)}</p>`;
+  });
+  const out = [];
+  let inList = false;
+  for (const l of lines) {
+    if (l.startsWith('<li>')) {
+      if (!inList) { out.push('<ul>'); inList = true; }
+      out.push(l);
+    } else {
+      if (inList) { out.push('</ul>'); inList = false; }
+      out.push(l);
+    }
+  }
+  if (inList) out.push('</ul>');
+  return out.join('\n');
+
+  function inlineMd(s) {
+    return s
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+      .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  }
+}
+
 /* ================= Tab 切换 ================= */
 
 function switchTab(tab) {
