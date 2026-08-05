@@ -133,8 +133,30 @@ func (c *Controller) testSend(request *restful.Request, response *restful.Respon
 
 // buildPayloadFromTemplate 用指定模板 + 字段表单构造告警数据，渲染出 title/text/markdown 三段 payload。
 // 模板名必须与发送渠道匹配（模板文件名以 <channel>. 开头）。
+// 特殊值 "custom"：使用该渠道的自定义模板（字段映射从构造的告警 JSON 中提取，与真实发送一致）。
 func (c *Controller) buildPayloadFromTemplate(req *testSendRequest) (*models.Payload, error) {
-	// 模板渠道约束：<channel>.tmpl / <channel>.<lang>.tmpl
+	// 自定义模板分支：与真实发送 buildPayload 分流一致（customTmplStore 命中 → RenderCustomTmpl）
+	if req.Template == "custom" {
+		if c.customTmplStore == nil {
+			return nil, fmt.Errorf("custom template store is not enabled")
+		}
+		ct, err := c.customTmplStore.Get(req.Channel)
+		if err != nil {
+			return nil, fmt.Errorf("read custom template for channel %q failed: %w", req.Channel, err)
+		}
+		if ct == nil {
+			return nil, fmt.Errorf("channel %q has no custom template", req.Channel)
+		}
+		// 字段表单构造告警数据 → JSON 作为 raw（字段映射从该 JSON 提取）
+		msg := c.buildAlertMessageFromFields(req)
+		rawBody, err := json.Marshal(msg)
+		if err != nil {
+			return nil, fmt.Errorf("marshal alert message failed: %w", err)
+		}
+		return promModels.RenderCustomTmpl(ct.Content, ct.FieldMap, rawBody)
+	}
+
+	// 模板渠道约束：<channel>.tmpl
 	if !strings.HasPrefix(req.Template, req.Channel+".") {
 		return nil, fmt.Errorf("template %q does not match channel %q", req.Template, req.Channel)
 	}

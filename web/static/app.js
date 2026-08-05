@@ -680,8 +680,13 @@ async function loadChannelFilterOptions() {
 
 async function loadTestChannelOptions() {
   try {
-    const [list, tmpls] = await Promise.all([api('/api/channels'), api('/api/templates')]);
+    const [list, tmpls, customTmpls] = await Promise.all([
+      api('/api/channels'),
+      api('/api/templates'),
+      api('/api/custom-templates'),
+    ]);
     state.templates = Array.isArray(tmpls) ? tmpls : [];
+    state.ctChannels = Array.isArray(customTmpls) ? customTmpls.map((c) => (typeof c === 'string' ? c : c.channel)).filter(Boolean) : [];
     const sel = $('test-channel');
     if (list.length === 0) {
       sel.innerHTML = '<option value="">（请先在渠道配置页添加渠道）</option>';
@@ -692,7 +697,8 @@ async function loadTestChannelOptions() {
   } catch (e) { /* ignore */ }
 }
 
-// 模板渠道约束：模板名以 <channel>. 开头（如 feishu.tmpl）
+// 模板渠道约束：内置模板名以 <channel>. 开头（如 feishu.tmpl）；
+// 渠道配置了自定义模板时额外提供「自定义模板」选项（value=custom）。
 function updateTemplateOptions() {
   const channel = $('test-channel').value;
   const sel = $('test-template');
@@ -701,8 +707,10 @@ function updateTemplateOptions() {
     sel.disabled = true;
   } else {
     const matched = state.templates.filter((t) => t.startsWith(channel + '.'));
+    const hasCustom = state.ctChannels.includes(channel);
     sel.disabled = false;
     sel.innerHTML = '<option value="">不使用模板（简单文本）</option>' +
+      (hasCustom ? '<option value="custom">✨ 自定义模板（当前渠道启用）</option>' : '') +
       matched.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
   }
   toggleTemplateFields();
