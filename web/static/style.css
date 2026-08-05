@@ -37,8 +37,6 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:13p
 .status-pill{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);background:var(--panel2);border:1px solid var(--border);padding:4px 10px;border-radius:20px}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--ok)}
 .avatar{width:28px;height:28px;border-radius:50%;background:var(--accent-bg);color:var(--accent);display:grid;place-items:center;font-size:12px;font-weight:700}
-.token-input{background:var(--panel2);border:1px solid var(--border);border-radius:var(--r);color:var(--ink);font-size:11.5px;font-family:var(--mono);padding:5px 10px;width:200px}
-.token-input:focus{outline:none;border-color:var(--accent)}
 
 .content{padding:24px;overflow:auto;flex:1}
 .page-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px}
@@ -76,8 +74,19 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:13p
 .cfg-form{display:flex;flex-direction:column;gap:14px}
 .chan-tmpl-block{margin-top:4px;padding:12px;border:1px solid var(--border);border-radius:var(--r);background:var(--panel2)}
 .chan-tmpl-block .block-label{font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
-.chan-tmpl-status{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-bottom:8px}
-.chan-tmpl-status .pill{font-size:11px;padding:1px 8px;border-radius:10px;background:var(--panel);border:1px solid var(--border)}
+.auth-status{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);padding:0 4px}
+.auth-status .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);display:inline-block}
+.btn.mini{padding:3px 10px;font-size:11px;border-radius:var(--r);border:1px solid var(--border);background:var(--panel2);color:var(--muted);cursor:pointer}
+.btn.mini:hover{border-color:var(--accent);color:var(--accent)}
+/* 登录弹窗 */
+.modal-overlay{position:fixed;inset:0;background:rgba(6,8,12,.75);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:100}
+.modal{width:min(360px,92vw);background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:26px 24px;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.modal h3{margin:0 0 6px;font-size:16px}
+.modal .hint{font-size:12px;color:var(--faint);margin:0 0 14px}
+.modal input{width:100%;padding:10px 12px;background:var(--panel2);border:1px solid var(--border);border-radius:var(--r);color:var(--ink);font-size:13px;font-family:var(--mono);margin-bottom:14px}
+.modal input:focus{outline:none;border-color:var(--accent)}
+.modal-actions{display:flex;justify-content:flex-end}
+.modal-err{font-size:12px;color:var(--err);margin-top:10px}
 .chan-tmpl-status .pill.succ{background:var(--ok-bg);color:var(--ok);border-color:transparent}
 .chan-tmpl-status .hint{color:var(--faint);font-size:11px}
 .block-actions{display:flex;gap:8px}

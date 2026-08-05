@@ -68,7 +68,12 @@ async function api(path, opts = {}) {
   if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
   const resp = await fetch(path, Object.assign({}, opts, { headers }));
   if (resp.status === 401) {
-    toast('认证失败：请填写正确的 --auth-token', true);
+    // 会话失效：清除 token 并弹登录窗（弹窗内自行提示错误，不再 toast 重复打扰）
+    if (state.token) {
+      state.token = '';
+      localStorage.removeItem('awh-token');
+      showLoginModal();
+    }
     throw new Error('unauthorized');
   }
   const text = await resp.text();
@@ -1100,19 +1105,73 @@ $('ct-rawbody').addEventListener('input', () => {
   scheduleCtFields();
 });
 
-/* ================= 初始化 ================= */
+/* ================= 登录弹窗（Token 认证，不回显明文） ================= */
 
-$('token-input').value = state.token;
-$('token-input').addEventListener('change', () => {
-  state.token = $('token-input').value.trim();
-  localStorage.setItem('awh-token', state.token);
-  toast('Token 已更新');
-  // 刷新当前页
+function showLoginModal() {
+  $('login-modal').hidden = false;
+  $('login-err').hidden = true;
+  $('login-token').value = '';
+  setTimeout(() => $('login-token').focus(), 50);
+}
+
+function hideLoginModal() {
+  $('login-modal').hidden = true;
+  $('login-token').value = '';
+}
+
+// 尝试登录：token 校验成功则入库 + 刷新，失败提示
+async function tryLogin(token) {
+  try {
+    const resp = await fetch('/api/channels', {
+      headers: Object.assign({ 'Content-Type': 'application/json' }, token ? { Authorization: 'Bearer ' + token } : {}),
+    });
+    if (resp.status === 401) {
+      $('login-err').hidden = false;
+      $('login-token').value = '';
+      $('login-token').focus();
+      return;
+    }
+    // 成功：保存 token，关闭弹窗，刷新页面数据
+    state.token = token;
+    localStorage.setItem('awh-token', token);
+    hideLoginModal();
+    $('auth-status').hidden = false;
+    refreshAllTabs();
+    toast('登录成功');
+  } catch (e) {
+    $('login-err').hidden = false;
+  }
+}
+
+// 校验当前 token 是否有效；无效则弹登录窗
+async function verifyAuth() {
+  if (!state.token) { showLoginModal(); return; }
+  try {
+    const resp = await fetch('/api/channels', { headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + state.token } });
+    if (resp.status === 401) {
+      state.token = '';
+      localStorage.removeItem('awh-token');
+      showLoginModal();
+    } else {
+      $('auth-status').hidden = false;
+    }
+  } catch (e) {
+    // 网络异常不弹窗，保持现状
+  }
+}
+
+function refreshAllTabs() {
   if (state.tab === 'channels') loadChannels();
   if (state.tab === 'templates') loadTemplates();
   if (state.tab === 'sends') loadSends();
   if (state.tab === 'test') loadTestChannelOptions();
-});
+}
+
+$('btn-login').addEventListener('click', () => tryLogin($('login-token').value.trim()));
+$('login-token').addEventListener('keydown', (e) => { if (e.key === 'Enter') tryLogin($('login-token').value.trim()); });
+$('btn-switch-token').addEventListener('click', showLoginModal);
+
+/* ================= 初始化 ================= */
 
 // 健康检查
 fetch('/healthz').then((r) => {
@@ -1130,6 +1189,7 @@ fetch('/api/info').then((r) => (r.ok ? r.json() : null)).then((info) => {
 
 // 启动
 (async () => {
+  await verifyAuth();
   loadChannelFilterOptions();
   await loadChannels();
   renderChannelForm();

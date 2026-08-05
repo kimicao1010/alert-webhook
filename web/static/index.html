@@ -37,7 +37,10 @@
     <div class="topbar">
       <div class="crumb">控制台 / <b id="crumb">渠道配置</b></div>
       <div class="spacer"></div>
-      <input class="token-input" id="token-input" type="password" placeholder="Bearer Token（--auth-token）" />
+      <div class="auth-status" id="auth-status" hidden>
+        <span class="dot ok"></span>已认证
+        <button class="btn mini" id="btn-switch-token" title="更换访问 Token">切换 Token</button>
+      </div>
       <div class="status-pill"><span class="dot"></span>服务正常</div>
     </div>
 
@@ -243,6 +246,19 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- 登录弹窗：输入 --auth-token 访问控制台；输入后不回显明文 -->
+<div class="modal-overlay" id="login-modal" hidden>
+  <div class="modal">
+    <h3>🔐 登录控制台</h3>
+    <p class="hint">请输入服务端配置的访问 Token（--auth-token）</p>
+    <input id="login-token" type="password" placeholder="Bearer Token" autocomplete="off" />
+    <div class="modal-actions">
+      <button class="btn primary" id="btn-login">登录</button>
+    </div>
+    <div class="modal-err" id="login-err" hidden>认证失败，请检查 Token</div>
+  </div>
+</div>
 
 <script src="/ui/static/app.js"></script>
 </body>
