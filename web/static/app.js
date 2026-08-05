@@ -366,45 +366,59 @@ function openAddChannelModal() {
 
 async function loadTemplates() {
   try {
-    const list = await api('/api/templates');
+    const [list, customTmpls] = await Promise.all([
+      api('/api/templates'),
+      api('/api/custom-templates'),
+    ]);
     state.templates = Array.isArray(list) ? list : [];
+    state.ctChannels = Array.isArray(customTmpls) ? customTmpls.map((c) => (typeof c === 'string' ? c : c.channel)).filter(Boolean) : [];
     renderTemplateList();
   } catch (e) { /* 401 已提示 */ }
 }
 
-// tmplChannelOf：从模板文件名解析所属渠道（feishu.tmpl / feishu.zh.tmpl → feishu）；
-// 无渠道前缀（如 custom.tmpl，由 --tmpl-dir/--tmpl-name 加载）返回 null。
-function tmplChannelOf(name) {
-  const base = name.replace(/\.zh\.tmpl$/, '').replace(/\.tmpl$/, '');
-  if (!base || base === name) return null;
-  return base;
-}
-
 function renderTemplateList() {
   const box = $('tmpl-list');
-  $('tmpl-count').textContent = state.templates.length + ' 个';
-  if (state.templates.length === 0) {
+  const builtin = state.templates || [];
+  const custom = state.ctChannels || [];
+  $('tmpl-count').textContent = (builtin.length + custom.length) + ' 个';
+
+  if (builtin.length === 0 && custom.length === 0) {
     box.innerHTML = '<div class="empty">暂无模板</div>';
     return;
   }
-  box.innerHTML = state.templates.map((t) => {
-    const lang = t.endsWith('.zh.tmpl') ? 'zh' : (t.endsWith('.tmpl') ? 'en' : '');
-    const ch = tmplChannelOf(t);
-    const badge = ch
-      ? `<span class="chan-tag" title="此模板用于 ${esc(ch)} 渠道">${esc(ch)}</span>`
-      : `<span class="chan-tag gray" title="由 --tmpl-dir/--tmpl-name 加载，作用于所有渠道">通用</span>`;
-    return `<div class="tmpl-file ${t === state.curTmpl ? 'active' : ''}" data-tmpl="${esc(t)}">
-      <span>${esc(t)}</span>${badge}${lang ? `<span class="lang">${lang}</span>` : ''}</div>`;
-  }).join('');
-  box.querySelectorAll('.tmpl-file').forEach((el) => el.addEventListener('click', () => {
+
+  const builtinHtml = builtin.map((t) => `
+    <div class="tmpl-file ${t === state.curTmpl ? 'active' : ''}" data-tmpl="${esc(t)}">
+      <span>${esc(t)}</span></div>`).join('');
+
+  const customHtml = custom.map((ch) => `
+    <div class="tmpl-file tmpl-custom" data-custom="${esc(ch)}">
+      <span>${esc(ch)}</span>
+      <span class="ref-tag" title="该渠道已配置自定义模板，发送时替换内置模板">✓ 已引用</span>
+    </div>`).join('');
+
+  box.innerHTML = `
+    ${builtin.length ? `<div class="tmpl-group">内置模板<span class="cnt">${builtin.length}</span></div>${builtinHtml}` : ''}
+    ${custom.length ? `<div class="tmpl-group">自定义模板<span class="cnt">${custom.length}</span></div>${customHtml}` : ''}`;
+
+  // 内置条目：同 tab 编辑
+  box.querySelectorAll('.tmpl-file[data-tmpl]').forEach((el) => el.addEventListener('click', () => {
     state.curTmpl = el.dataset.tmpl;
     renderTemplateList();
     loadTemplateContent();
   }));
-  if (!state.curTmpl || !state.templates.includes(state.curTmpl)) {
-    state.curTmpl = state.templates[0];
+  // 自定义条目：跳转自定义 tab 载入该渠道
+  box.querySelectorAll('.tmpl-file[data-custom]').forEach((el) => el.addEventListener('click', () => {
+    switchTab('templates');
+    openCustomTmplTab();
+    loadCustomTemplateFor(el.dataset.custom);
+  }));
+
+  if (!state.curTmpl || !builtin.includes(state.curTmpl)) {
+    state.curTmpl = builtin[0] || '';
   }
-  loadTemplateContent();
+  if (state.curTmpl) loadTemplateContent();
+  else $('tmpl-filename').textContent = '—';
 }
 
 async function loadTemplateContent() {
@@ -636,7 +650,7 @@ async function loadTestChannelOptions() {
   } catch (e) { /* ignore */ }
 }
 
-// 模板渠道约束：模板名以 <channel>. 开头（如 feishu.tmpl / feishu.zh.tmpl）
+// 模板渠道约束：模板名以 <channel>. 开头（如 feishu.tmpl）
 function updateTemplateOptions() {
   const channel = $('test-channel').value;
   const sel = $('test-template');

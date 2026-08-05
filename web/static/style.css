@@ -100,6 +100,11 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:13p
 .tmpl-file:hover{background:var(--panel2)}
 .tmpl-file.active{border-color:var(--accent);background:var(--accent-bg);color:var(--accent)}
 .tmpl-file .lang{font-size:10px;color:var(--faint);font-family:var(--sans)}
+.tmpl-group{display:flex;align-items:center;gap:6px;padding:10px 6px 4px;font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.6px}
+.tmpl-group:first-child{padding-top:2px}
+.tmpl-group .cnt{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:0 6px;font-size:10px;color:var(--faint)}
+.tmpl-file.tmpl-custom{justify-content:space-between;font-family:var(--sans)}
+.tmpl-file .ref-tag{font-size:10px;padding:1px 6px;border-radius:4px;background:var(--ok-bg);color:var(--ok);font-family:var(--sans);white-space:nowrap}
 .editor-wrap{border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
 .editor-top{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--panel2);border-bottom:1px solid var(--border);font-size:11px;color:var(--faint)}
 .editor-top .seg{display:flex;gap:6px}
