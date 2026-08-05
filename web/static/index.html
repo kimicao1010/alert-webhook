@@ -65,26 +65,67 @@
       <!-- ======== 模板编辑 ======== -->
       <section class="page" id="page-templates" style="display:none">
         <div class="page-head">
-          <div><h1>模板编辑</h1><p>编辑各渠道通知模板，保存后热重载生效，编辑时右侧实时预览渲染结果。</p></div>
-          <button class="btn primary" id="btn-save-tmpl">保存模板</button>
+          <div><h1>模板编辑</h1><p>内置模板编辑各渠道通知模板；自定义模板可关联渠道并按字段映射适配任意调用源 JSON 格式。</p></div>
         </div>
-        <div class="tmpl">
-          <div class="card">
-            <div class="card-head"><h3>模板文件</h3><span class="hint" id="tmpl-count">0 个</span></div>
-            <div class="card-body tmpl-side" id="tmpl-list"></div>
-          </div>
-          <div>
-            <div class="editor-wrap">
-              <div class="editor-top">
-                <span style="font-family:var(--mono)" id="tmpl-filename">—</span>
-                <div class="seg"><span class="seg-chip on">title</span><span class="seg-chip">text</span><span class="seg-chip">markdown</span></div>
-              </div>
-              <textarea class="editor" id="tmpl-editor" spellcheck="false" placeholder="选择左侧模板文件开始编辑…"></textarea>
+        <div class="tmpl-tabs">
+          <button class="tmpl-tab active" data-tmpltab="builtin">内置模板</button>
+          <button class="tmpl-tab" data-tmpltab="custom">自定义模板</button>
+        </div>
+        <!-- 内置模板面板 -->
+        <div id="tmpl-panel-builtin">
+          <div class="tmpl">
+            <div class="card">
+              <div class="card-head"><h3>模板文件</h3><span class="hint" id="tmpl-count">0 个</span></div>
+              <div class="card-body tmpl-side" id="tmpl-list"></div>
             </div>
-            <div class="preview">
-              <div class="preview-head"><div class="ttl"><span>渲染预览</span><span class="seg-chip" style="color:var(--ok)">示例数据</span></div><span class="hint">300ms 防抖实时预览</span></div>
-              <div class="preview-body" id="tmpl-preview">
-                <div class="empty"><div class="big">◷</div>编辑模板内容后将在此实时显示渲染结果</div>
+            <div>
+              <div class="editor-wrap">
+                <div class="editor-top">
+                  <span style="font-family:var(--mono)" id="tmpl-filename">—</span>
+                  <div class="seg"><span class="seg-chip on">title</span><span class="seg-chip">text</span><span class="seg-chip">markdown</span><button class="btn primary mini" id="btn-save-tmpl">保存模板</button></div>
+                </div>
+                <textarea class="editor" id="tmpl-editor" spellcheck="false" placeholder="选择左侧模板文件开始编辑…"></textarea>
+              </div>
+              <div class="preview">
+                <div class="preview-head"><div class="ttl"><span>渲染预览</span><span class="seg-chip" style="color:var(--ok)">示例数据</span></div><span class="hint">300ms 防抖实时预览</span></div>
+                <div class="preview-body" id="tmpl-preview">
+                  <div class="empty"><div class="big">◷</div>编辑模板内容后将在此实时显示渲染结果</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- 自定义模板面板 -->
+        <div id="tmpl-panel-custom" style="display:none">
+          <div class="ct-grid">
+            <div>
+              <div class="card">
+                <div class="card-head"><h3>自定义模板</h3><span class="hint">关联渠道（一对一，启用即替换该渠道内置模板）</span></div>
+                <div class="card-body">
+                  <div class="form-row"><label>关联渠道</label><select id="ct-channel"></select></div>
+                  <div class="btn-row">
+                    <button class="btn primary" id="btn-save-ct">保存自定义模板</button>
+                    <button class="btn danger" id="btn-del-ct">删除</button>
+                  </div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-head"><h3>字段映射</h3><span class="hint">模板变量名 = JSON 路径（如 severity = alerts[0].labels.severity），模板中通过 {{ "{{ .Custom.severity }}" }} 访问</span></div>
+                <div class="card-body">
+                  <div id="ct-fieldmap"></div>
+                  <button class="btn" id="btn-add-fieldmap">+ 添加字段映射</button>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div class="card">
+                <div class="card-head"><h3>模板内容</h3><span class="hint">含 {{ "{{ define \"prom.title\" }}" }} 等三段定义</span></div>
+                <textarea class="editor" id="ct-editor" spellcheck="false" placeholder='{{ "{{ define \"prom.title\" }}" }}…'></textarea>
+              </div>
+              <div class="card">
+                <div class="card-head"><h3>预览（粘贴调用源 JSON body）</h3></div>
+                <textarea class="editor ct-raw" id="ct-rawbody" spellcheck="false" placeholder='{"receiver":"webhook","alerts":[...]}'></textarea>
+                <div class="preview-body" id="ct-preview"><div class="empty"><div class="big">◷</div>编辑模板或粘贴调用源 JSON 后实时预览</div></div>
               </div>
             </div>
           </div>

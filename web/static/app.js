@@ -19,6 +19,7 @@ const state = {
   autoRefreshTimer: null,
   previewTimer: null,
   testResult: null,
+  ctChannel: null,
 };
 
 // 渠道元信息（显示名 + 配置字段定义）
@@ -615,6 +616,167 @@ $('btn-test-send').addEventListener('click', async () => {
     btn.textContent = '发送测试消息';
   }
 });
+
+/* ================= 自定义模板（字段映射适配任意调用源） ================= */
+
+// 示例调用源 body（与用户实际 NodeDiskUsage 负载同构）
+const SAMPLE_CUSTOM_BODY = JSON.stringify({
+  receiver: 'webhook', status: 'firing',
+  alerts: [{ status: 'firing', labels: { alertname: 'NodeDiskUsage', device: '/dev/vda3', fstype: 'ext4', instance: 'kl-k3s-worker002', job: 'nodes', mountpoint: '/', severity: 'Warning' }, annotations: { summary: '实例 kl-k3s-worker002 磁盘使用率过高' }, startsAt: '2026-08-04T04:43:31.991Z' }],
+  groupLabels: { alertname: 'NodeDiskUsage', instance: 'kl-k3s-worker002' },
+  commonLabels: { alertname: 'NodeDiskUsage', severity: 'Warning' },
+  commonAnnotations: { summary: '实例 kl-k3s-worker002 磁盘使用率过高' },
+}, null, 2);
+
+const DEFAULT_FIELDMAP_ROWS = [
+  ['alertname', 'alerts[0].labels.alertname'],
+  ['severity', 'alerts[0].labels.severity'],
+  ['instance', 'alerts[0].labels.instance'],
+  ['summary', 'alerts[0].annotations.summary'],
+];
+
+let ctFieldMap = []; // [{name, path}]
+
+// 模板页 tab 切换（内置/自定义）
+document.querySelectorAll('.tmpl-tab').forEach((btn) => btn.addEventListener('click', () => {
+  document.querySelectorAll('.tmpl-tab').forEach((b) => b.classList.toggle('active', b === btn));
+  const isCustom = btn.dataset.tmpltab === 'custom';
+  $('tmpl-panel-builtin').style.display = isCustom ? 'none' : 'block';
+  $('tmpl-panel-custom').style.display = isCustom ? 'block' : 'none';
+  if (isCustom) loadCustomTemplatePanel();
+}));
+
+function renderCtFieldMap() {
+  const box = $('ct-fieldmap');
+  if (ctFieldMap.length === 0) {
+    box.innerHTML = '<div class="empty small">暂无字段映射，点击下方按钮添加</div>';
+    return;
+  }
+  box.innerHTML = ctFieldMap.map((row, i) => `
+    <div class="fm-row" data-i="${i}">
+      <input class="fm-name" placeholder="变量名（如 severity）" value="${esc(row.name)}" spellcheck="false" />
+      <span class="fm-eq">=</span>
+      <input class="fm-path" placeholder="JSON 路径（如 alerts[0].labels.severity）" value="${esc(row.path)}" spellcheck="false" />
+      <button class="fm-del" title="删除">✕</button>
+    </div>`).join('');
+  box.querySelectorAll('.fm-del').forEach((btn) => btn.addEventListener('click', () => {
+    ctFieldMap.splice(Number(btn.closest('.fm-row').dataset.i), 1);
+    renderCtFieldMap();
+    scheduleCtPreview();
+  }));
+  box.querySelectorAll('.fm-name').forEach((inp) => inp.addEventListener('input', () => {
+    ctFieldMap[Number(inp.closest('.fm-row').dataset.i)].name = inp.value.trim();
+    scheduleCtPreview();
+  }));
+  box.querySelectorAll('.fm-path').forEach((inp) => inp.addEventListener('input', () => {
+    ctFieldMap[Number(inp.closest('.fm-row').dataset.i)].path = inp.value.trim();
+    scheduleCtPreview();
+  }));
+}
+
+$('btn-add-fieldmap').addEventListener('click', () => {
+  ctFieldMap.push({ name: '', path: '' });
+  renderCtFieldMap();
+});
+
+async function loadCustomTemplatePanel() {
+  const sel = $('ct-channel');
+  // 渠道下拉：复用已加载的渠道列表
+  if (state.channels.length === 0) {
+    try { await loadChannels(); } catch (e) { /* 401 已提示 */ }
+  }
+  sel.innerHTML = state.channels.map((ch) => `<option value="${esc(ch)}">${esc(ch)}</option>`).join('')
+    || '<option value="">（无渠道，请先配置渠道）</option>';
+  sel.value = state.ctChannel || state.channels[0] || '';
+  if (!sel.value) return;
+  await loadCustomTemplateFor(sel.value);
+}
+
+async function loadCustomTemplateFor(channel) {
+  $('ct-channel').value = channel;
+  state.ctChannel = channel;
+  $('ct-editor').value = '';
+  ctFieldMap = DEFAULT_FIELDMAP_ROWS.map(([n, p]) => ({ name: n, path: p }));
+  $('ct-rawbody').value = SAMPLE_CUSTOM_BODY;
+  renderCtFieldMap();
+  try {
+    const data = await api(`/api/custom-templates/${encodeURIComponent(channel)}`);
+    $('ct-editor').value = data.content || '';
+    ctFieldMap = Object.entries(data.fieldMap || {}).map(([name, path]) => ({ name, path }));
+    renderCtFieldMap();
+    toast(`已加载 ${channel} 的自定义模板`);
+  } catch (e) {
+    // 404 表示未配置：清空并保留默认字段映射示例
+    if (e.message !== 'unauthorized') $('ct-preview').innerHTML = '<div class="empty small">该渠道未配置自定义模板（将使用内置模板发送）</div>';
+  }
+  scheduleCtPreview();
+}
+
+$('ct-channel').addEventListener('change', (e) => {
+  if (e.target.value) loadCustomTemplateFor(e.target.value);
+});
+
+// 保存
+$('btn-save-ct').addEventListener('click', async () => {
+  const channel = $('ct-channel').value;
+  if (!channel) { toast('请先选择渠道', true); return; }
+  const content = $('ct-editor').value;
+  if (!content.trim()) { toast('模板内容不能为空', true); return; }
+  const fieldMap = {};
+  ctFieldMap.forEach((r) => { if (r.name && r.path) fieldMap[r.name] = r.path; });
+  try {
+    await api(`/api/custom-templates/${encodeURIComponent(channel)}`, {
+      method: 'POST',
+      body: JSON.stringify({ content, fieldMap }),
+    });
+    toast(`已保存：${channel} 将使用该自定义模板发送`);
+  } catch (e) { toast('保存失败：' + e.message, true); }
+});
+
+// 删除
+$('btn-del-ct').addEventListener('click', async () => {
+  const channel = $('ct-channel').value;
+  if (!channel) return;
+  if (!confirm(`确认删除渠道 ${channel} 的自定义模板？删除后将回退到内置模板。`)) return;
+  try {
+    await api(`/api/custom-templates/${encodeURIComponent(channel)}`, { method: 'DELETE' });
+    ctFieldMap = DEFAULT_FIELDMAP_ROWS.map(([n, p]) => ({ name: n, path: p }));
+    $('ct-editor').value = '';
+    renderCtFieldMap();
+    toast(`已删除：${channel} 回退到内置模板`);
+  } catch (e) { toast('删除失败：' + e.message, true); }
+});
+
+// 预览：300ms 防抖
+let ctPreviewTimer = null;
+function scheduleCtPreview() {
+  clearTimeout(ctPreviewTimer);
+  ctPreviewTimer = setTimeout(doCtPreview, 300);
+}
+async function doCtPreview() {
+  const content = $('ct-editor').value;
+  const rawBody = $('ct-rawbody').value;
+  const fieldMap = {};
+  ctFieldMap.forEach((r) => { if (r.name && r.path) fieldMap[r.name] = r.path; });
+  if (!content.trim()) {
+    $('ct-preview').innerHTML = '<div class="empty small">输入模板内容后实时预览</div>';
+    return;
+  }
+  try {
+    const out = await api('/api/custom-templates/preview', {
+      method: 'POST',
+      body: JSON.stringify({ content, fieldMap, rawBody }),
+    });
+    const rows = ['title', 'text', 'markdown']
+      .map((k) => `<div class="pv-row"><div class="pv-label">${k}</div><div class="pv-val">${esc(out[k] || '')}</div></div>`)
+      .join('');
+    $('ct-preview').innerHTML = rows || '<div class="empty small">（空渲染结果）</div>';
+  } catch (e) {
+    $('ct-preview').innerHTML = `<div class="res-box fail">✗ ${esc(e.message)}</div>`;
+  }
+}
+$('ct-editor').addEventListener('input', scheduleCtPreview);
+$('ct-rawbody').addEventListener('input', scheduleCtPreview);
 
 /* ================= 初始化 ================= */
 
