@@ -114,20 +114,6 @@ $ systemctl start
 > 认证 token 通过环境变量 `AUTH_TOKEN` 注入（见 service 文件内注释），
 > 生产环境建议使用 `EnvironmentFile` 管理密钥。
 
-### Run as Docker container
-
-```bash
-# 挂载数据目录（渠道配置/模板/发送记录持久化），并暴露端口
-docker run --rm -it \
-  -p 127.0.0.1:8090:8090 \
-  -v /data/alertmanager-webhook-adapter:/data \
-  kimicao1010/alert-webhook:v1.1.11 \
-  --data-dir=/data --auth-token=your-token
-
-# 关闭 Web UI
-docker run --rm -it -p 127.0.0.1:8090:8090 kimicao1010/alert-webhook:v1.1.11 --web-enabled=false
-```
-
 ### Run in K8S
 
 Apply manifests:
