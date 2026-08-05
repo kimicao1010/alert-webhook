@@ -802,6 +802,21 @@ async function loadCtRecords() {
 
 $('btn-refresh-ct-records').addEventListener('click', () => { loadCtRecords(); });
 
+// renderCtStatus：显示当前渠道模板生效状态（内置 / 自定义）
+async function renderCtStatus(channel) {
+  const el = $('ct-status');
+  if (!el || !channel) return;
+  try {
+    await api(`/api/custom-templates/${encodeURIComponent(channel)}`);
+    el.innerHTML = `<span class="dot ok"></span>当前渠道 <b>${esc(channel)}</b> 使用：<span class="pill succ">自定义模板</span>
+      <span class="hint">（保存将替换该渠道内置模板）</span>`;
+  } catch (e) {
+    if (e.message === 'unauthorized') return;
+    el.innerHTML = `<span class="dot"></span>当前渠道 <b>${esc(channel)}</b> 使用：<span class="pill">内置模板</span>
+      <span class="hint">（保存下方内容后改为自定义模板）</span>`;
+  }
+}
+
 async function loadCustomTemplateFor(channel) {
   $('ct-channel').value = channel;
   state.ctChannel = channel;
@@ -809,11 +824,13 @@ async function loadCustomTemplateFor(channel) {
   ctFieldMap = DEFAULT_FIELDMAP_ROWS.map(([n, p]) => ({ name: n, path: p }));
   $('ct-rawbody').value = SAMPLE_CUSTOM_BODY;
   renderCtFieldMap();
+  renderCtStatus(channel);
   try {
     const data = await api(`/api/custom-templates/${encodeURIComponent(channel)}`);
     $('ct-editor').value = data.content || '';
     ctFieldMap = Object.entries(data.fieldMap || {}).map(([name, path]) => ({ name, path }));
     renderCtFieldMap();
+    renderCtStatus(channel);
     toast(`已加载 ${channel} 的自定义模板`);
   } catch (e) {
     // 404 表示未配置：清空并保留默认字段映射示例
