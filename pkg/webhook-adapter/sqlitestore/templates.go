@@ -66,9 +66,15 @@ func (v *TemplateView) Delete(name string) error {
 
 // EnsureInitialTemplates 首次启动把内置模板写入 templates 表；已存在则跳过（幂等，
 // 不覆盖用户编辑），语义与 tmplstore.JSONStore.EnsureInitialTemplates 一致。
+// 同时清理旧版残留：删除 <channel>.zh.tmpl（去语言化后不再使用）。
 func (v *TemplateView) EnsureInitialTemplates() error {
 	v.s.mu.Lock()
 	defer v.s.mu.Unlock()
+
+	// 清理旧版 zh 残留模板（去语言化后不再加载，避免误导）
+	if _, err := v.s.db.Exec(`DELETE FROM templates WHERE name LIKE '%.zh.tmpl'`); err != nil {
+		return err
+	}
 
 	builtin := map[string]string{}
 	defaultContent := templates.DefaultTmpl

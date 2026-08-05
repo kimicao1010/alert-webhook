@@ -44,12 +44,25 @@ func (s *JSONStore) path(name string) (string, error) {
 
 // EnsureInitialTemplates 从内置模板复制初始副本到模板目录；
 // 已存在的文件跳过（不覆盖用户编辑），幂等。
+// 同时清理旧版残留：删除 <channel>.zh.tmpl（去语言化后不再使用）。
 func (s *JSONStore) EnsureInitialTemplates() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if err := os.MkdirAll(s.dir, 0700); err != nil {
 		return err
+	}
+
+	// 清理旧版 zh 残留模板（去语言化后不再加载，避免误导）
+	if entries, err := os.ReadDir(s.dir); err == nil {
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			if strings.HasSuffix(e.Name(), ".zh.tmpl") {
+				_ = os.Remove(filepath.Join(s.dir, e.Name()))
+			}
+		}
 	}
 
 	// 内置默认模板：所有渠道共用一套（内容来自 default.tmpl）
