@@ -143,7 +143,7 @@ func TestSendWithFailover_BackupSuccess(t *testing.T) {
 	created["backup"].failures = 0
 
 	payload := &models.Payload{Title: "t", Markdown: "m"}
-	err, used := c.sendWithFailover("primary", payload)
+	err, used, _ := c.sendWithFailover("primary", payload)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -172,7 +172,7 @@ func TestSendWithFailover_AllFail(t *testing.T) {
 	}
 
 	payload := &models.Payload{Title: "t"}
-	err, used := c.sendWithFailover("primary", payload)
+	err, used, _ := c.sendWithFailover("primary", payload)
 	if err == nil {
 		t.Fatal("expected error when all channels fail")
 	}
@@ -187,7 +187,7 @@ func TestSendWithFailover_AllFail(t *testing.T) {
 func TestSendWithFailover_NoBackup(t *testing.T) {
 	c, _ := newTestController(t, []string{"only"})
 	payload := &models.Payload{Title: "t"}
-	err, used := c.sendWithFailover("only", payload)
+	err, used, _ := c.sendWithFailover("only", payload)
 	if err == nil {
 		t.Fatal("expected error when no backup channel exists")
 	}
@@ -229,7 +229,7 @@ func TestSendWithFailover_BackupGetsNotice(t *testing.T) {
 	})
 
 	payload := &models.Payload{Title: "t", Markdown: "original md"}
-	err, used := c.sendWithFailover("primary", payload)
+	err, used, _ := c.sendWithFailover("primary", payload)
 	if err != nil || used != "backup" {
 		t.Fatalf("expected backup success, got err=%v used=%q", err, used)
 	}

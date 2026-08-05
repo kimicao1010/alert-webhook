@@ -209,10 +209,10 @@ func (c *Controller) send(request *restful.Request, response *restful.Response) 
 	if err != nil {
 		// sender 构造失败（如无凭据）：渠道不可用，尝试故障转移；无备用则失败
 		if !c.failoverDisabled {
-			fallbackErr, used := c.sendWithFailover(channelType, &models.Payload{Raw: string(raw)})
+			fallbackErr, used, actualPayload := c.sendWithFailover(channelType, &models.Payload{Raw: string(raw)})
 			if fallbackErr == nil {
 				c.logger.Info("send succeeded via failover (sender create failed)", "primary", channelType, "used", used)
-				c.recordSend(used, "success", "", promMsg, &models.Payload{Raw: string(raw)}, 0, channelType)
+				c.recordSend(used, "success", "", promMsg, actualPayload, 0, channelType)
 				response.WriteHeader(http.StatusNoContent)
 				return
 			}
@@ -254,11 +254,11 @@ func (c *Controller) send(request *restful.Request, response *restful.Response) 
 	if sendErr != nil {
 		// 主渠道重试耗尽：立即尝试备用渠道（故障转移）
 		if !c.failoverDisabled {
-			fallbackErr, used := c.sendWithFailover(channelType, payload)
+			fallbackErr, used, actualPayload := c.sendWithFailover(channelType, payload)
 			if fallbackErr == nil {
 				c.logger.Info("send succeeded via failover", "primary", channelType, "used", used)
-				// 记录代发渠道（used），并标记故障转移 + 原始渠道（channelType）
-				c.recordSend(used, "success", "", promMsg, payload, time.Since(sendStart), channelType)
+				// 记录代发渠道（used）+ 实际发送的 payload（含代发提示），并标记故障转移 + 原始渠道（channelType）
+				c.recordSend(used, "success", "", promMsg, actualPayload, time.Since(sendStart), channelType)
 				response.WriteHeader(http.StatusNoContent)
 				return
 			}
@@ -330,10 +330,10 @@ func withFailoverNotice(payload *models.Payload, primary, backup string) *models
 	return &cp
 }
 
-// sendWithFailover 遍历备用渠道逐个尝试发送，返回 (聚合错误, 实际成功渠道)。
-// 任一备用渠道成功立即返回 (nil, 该渠道)；全部失败返回聚合错误。
+// sendWithFailover 遍历备用渠道逐个尝试发送，返回 (聚合错误, 实际成功渠道, 实际发送的 payload)。
+// 任一备用渠道成功立即返回 (nil, 该渠道, 含代发提示的实际 payload)；全部失败返回聚合错误。
 // 每个备用渠道发送的内容均追加故障转移提示（withFailoverNotice）。
-func (c *Controller) sendWithFailover(primary string, payload *models.Payload) (error, string) {
+func (c *Controller) sendWithFailover(primary string, payload *models.Payload) (error, string, *models.Payload) {
 	var errs []string
 	for _, ch := range c.failoverChannels(primary) {
 		noticePayload := withFailoverNotice(payload, primary, ch)
@@ -342,9 +342,9 @@ func (c *Controller) sendWithFailover(primary string, payload *models.Payload) (
 			c.logger.Warn("failover channel failed", "channel", ch, "err", err.Error())
 			continue
 		}
-		return nil, ch
+		return nil, ch, noticePayload
 	}
-	return fmt.Errorf("all failover channels failed: %s", strings.Join(errs, "; ")), ""
+	return fmt.Errorf("all failover channels failed: %s", strings.Join(errs, "; ")), "", nil
 }
 
 // buildPayload 构造发送 payload：渠道有自定义模板时用字段映射渲染，否则用内置模板。
