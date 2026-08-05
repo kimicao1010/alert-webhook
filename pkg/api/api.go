@@ -315,12 +315,28 @@ func (c *Controller) failoverChannels(primary string) []string {
 	return res
 }
 
+// withFailoverNotice 返回 payload 的副本，并在 Markdown/Text 尾部追加故障转移提示，
+// 使备用渠道接收方知晓消息经过代发。不修改原 payload。
+func withFailoverNotice(payload *models.Payload, primary, backup string) *models.Payload {
+	cp := *payload
+	notice := fmt.Sprintf("\n\n> ⚠️ **故障转移**：渠道 `%s` 发送失败，本消息由备用渠道 `%s` 代发", primary, backup)
+	if cp.Markdown != "" {
+		cp.Markdown += notice
+	}
+	if cp.Text != "" {
+		cp.Text += notice
+	}
+	return &cp
+}
+
 // sendWithFailover 遍历备用渠道逐个尝试发送，返回 (聚合错误, 实际成功渠道)。
 // 任一备用渠道成功立即返回 (nil, 该渠道)；全部失败返回聚合错误。
+// 每个备用渠道发送的内容均追加故障转移提示（withFailoverNotice）。
 func (c *Controller) sendWithFailover(primary string, payload *models.Payload) (error, string) {
 	var errs []string
 	for _, ch := range c.failoverChannels(primary) {
-		if err := c.sendViaChannel(ch, payload); err != nil {
+		noticePayload := withFailoverNotice(payload, primary, ch)
+		if err := c.sendViaChannel(ch, noticePayload); err != nil {
 			errs = append(errs, fmt.Sprintf("%s: %v", ch, err))
 			c.logger.Warn("failover channel failed", "channel", ch, "err", err.Error())
 			continue

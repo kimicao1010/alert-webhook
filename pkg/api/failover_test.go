@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -152,8 +153,9 @@ func TestSendWithFailover_BackupSuccess(t *testing.T) {
 	if created["backup"].calls != 1 {
 		t.Fatalf("backup should be called once, got %d", created["backup"].calls)
 	}
-	if created["backup"].payload != payload {
-		t.Fatal("backup should receive same payload")
+	// 备用渠道收到带故障转移提示的副本（内容同源 + 追加提示）
+	if created["backup"].payload == nil || created["backup"].payload.Title != "t" || !strings.Contains(created["backup"].payload.Markdown, "故障转移") {
+		t.Fatalf("backup should receive notice payload with same content: %+v", created["backup"].payload)
 	}
 }
 
@@ -191,5 +193,54 @@ func TestSendWithFailover_NoBackup(t *testing.T) {
 	}
 	if used != "" {
 		t.Fatalf("expected empty used channel, got %q", used)
+	}
+}
+
+func TestWithFailoverNotice(t *testing.T) {
+	payload := &models.Payload{Title: "t", Text: "text body", Markdown: "**md** body"}
+	cp := withFailoverNotice(payload, "primary", "backup")
+
+	// 原 payload 不被修改
+	if payload.Markdown != "**md** body" || payload.Text != "text body" {
+		t.Fatal("original payload should not be modified")
+	}
+	// 副本含提示
+	if !strings.Contains(cp.Markdown, "故障转移") || !strings.Contains(cp.Markdown, "`primary`") || !strings.Contains(cp.Markdown, "`backup`") {
+		t.Fatalf("markdown should contain failover notice: %q", cp.Markdown)
+	}
+	if !strings.Contains(cp.Text, "故障转移") {
+		t.Fatalf("text should contain failover notice: %q", cp.Text)
+	}
+	if cp.Title != "t" {
+		t.Fatalf("title should be unchanged: %q", cp.Title)
+	}
+	// 空 Markdown 不追加（不产生裸提示）
+	empty := withFailoverNotice(&models.Payload{Title: "t"}, "p", "b")
+	if empty.Markdown != "" {
+		t.Fatalf("empty markdown should stay empty: %q", empty.Markdown)
+	}
+}
+
+func TestSendWithFailover_BackupGetsNotice(t *testing.T) {
+	c, created := newTestController(t, []string{"primary", "backup"})
+	primary := &failSender{}
+	senders.RegisterChannelsSenderCreator("primary", func(cfg map[string]string) (models.Sender, error) {
+		return primary, nil
+	})
+
+	payload := &models.Payload{Title: "t", Markdown: "original md"}
+	err, used := c.sendWithFailover("primary", payload)
+	if err != nil || used != "backup" {
+		t.Fatalf("expected backup success, got err=%v used=%q", err, used)
+	}
+	if created["backup"].payload == nil {
+		t.Fatal("backup should have received payload")
+	}
+	if !strings.Contains(created["backup"].payload.Markdown, "故障转移") {
+		t.Fatalf("backup payload should contain failover notice: %q", created["backup"].payload.Markdown)
+	}
+	// 原 payload 仍无提示（未被污染）
+	if strings.Contains(payload.Markdown, "故障转移") {
+		t.Fatal("original payload should not contain notice")
 	}
 }
