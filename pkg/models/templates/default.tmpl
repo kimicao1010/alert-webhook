@@ -1,120 +1,72 @@
-{{ define "__subject" -}}
-【{{ .Signature }}】
-
-{{- if eq ((index .Alerts 0).Labels.severity | toLower) "ok" }} OK{{ end }}
-{{- if eq ((index .Alerts 0).Labels.severity | toLower) "info" }} INFO{{ end }}
-{{- if eq ((index .Alerts 0).Labels.severity | toLower) "warning" }} WARNING{{ end }}
-{{- if eq ((index .Alerts 0).Labels.severity | toLower) "critical" }} CRITICAL{{ end }}
-
-{{- ` • ` }}
-
-{{- if .CommonLabels.alertname_custom }}{{ .CommonLabels.alertname_custom }}{{ else if .CommonAnnotations.alertname }}{{ .CommonAnnotations.alertname }}{{ else }}{{ .GroupLabels.alertname }}{{ end }}
-
-{{- ` • ` }}
-
-{{- if gt (.Alerts.Firing|len) 0 }}Firing:{{ .Alerts.Firing|len }}{{ end }}
-{{- if and (gt (.Alerts.Firing|len) 0) (gt (.Alerts.Resolved|len) 0) }}/{{ end }}
-{{- if gt (.Alerts.Resolved|len) 0 }}Resolved:{{ .Alerts.Resolved|len }}{{ end }}
-
-{{ end }}
-
-
-{{ define "__externalURL" -}}
-{{ .ExternalURL }}/#/alerts?receiver={{ .Receiver }}
+{{- define "__severity" -}}
+{{- if eq (.Labels.severity | toLower) "critical" }}🔴 CRITICAL{{ else if eq (.Labels.severity | toLower) "warning" }}🟠 WARNING{{ else if eq (.Labels.severity | toLower) "info" }}🔵 INFO{{ else if eq (.Labels.severity | toLower) "ok" }}✅ OK{{ else }}⚪ UNKNOWN{{ end -}}
 {{- end }}
 
-{{ define "__alertinstance" -}}
-{{- if .Labels.alertinstance -}}{{ .Labels.alertinstance }}
-{{- else if .Labels.instance -}}{{ .Labels.instance }}
-{{- else if .Labels.node -}}{{ .Labels.node }}
-{{- else if .Labels.nodename -}}{{ .Labels.nodename }}
-{{- else if .Labels.host -}}{{ .Labels.host }}
-{{- else if .Labels.hostname -}}{{ .Labels.hostname }}
-{{- else if .Labels.ip -}}{{ .Labels.ip }}
-{{- end -}}
+{{- define "__subject" -}}
+{{- if eq .Status "firing" }}🚨 告警中{{ else }}✅ 已恢复{{ end -}}
+{{- if .Signature }} 【{{ .Signature }}】{{ end -}}
+{{- if .Alerts }}{{ template "__severity" (index .Alerts 0) }}{{ end -}}
+{{- ` · ` -}}
+{{- if .CommonLabels.alertname }}{{ .CommonLabels.alertname }}{{ else if .GroupLabels.alertname }}{{ .GroupLabels.alertname }}{{ else if .Alerts }}{{ (index .Alerts 0).Labels.alertname }}{{ else }}告警{{ end -}}
 {{- end }}
 
-{{ define "__alert_list" }}
-{{ range . }}
-> Alert Name: {{ if .Labels.alertname_custom  }}{{ .Labels.alertname_custom }}{{ else if .Annotations.alertname  }}{{ .Annotations.alertname }}{{ else }}{{ .Labels.alertname }}{{ end }}
->
-> Severity:{{ ` ` }}
-{{- if eq (.Labels.severity | toLower) "ok" }}OK{{ end -}}
-{{- if eq (.Labels.severity | toLower) "info" }}INFO{{ end -}}
-{{- if eq (.Labels.severity | toLower) "warning" }}WARNING{{ end -}}
-{{- if eq (.Labels.severity | toLower) "critical" }}CRITICAL{{ end }}
->
-> Instance: `{{ template "__alertinstance" . }}`
->
-{{- if .Labels.region }}
-> Region: {{ .Labels.region }}
->
-{{- end }}
-{{- if .Labels.zone }}
-> Zone: {{ .Labels.zone }}
->
-{{- end }}
-{{- if .Labels.product }}
-> Product: {{ .Labels.product }}
->
-{{- end }}
-{{- if .Labels.component  }}
-> Component: {{ .Labels.component }}
->
-{{- end }}
-> Status: {{ if eq .Status "firing" }}🚨{{ else }}✅{{ end }}"> {{ .Status | toUpper }}
->
-> Starts At: {{ .StartsAt.Format "2006-01-02T15:04:05Z07:00" }}
->
-> Ends At: {{ if .EndsAt.After .StartsAt }}{{ .EndsAt.Format "2006-01-02T15:04:05Z07:00" }}{{ else }}Not End{{ end }}
-{{- if eq .Status "firing" }}
->
-> Description : {{ .Annotations.description }}
+{{- define "__alert_instance" -}}
+{{- if .Labels.alertinstance }}{{ .Labels.alertinstance }}{{ else if .Labels.instance }}{{ .Labels.instance }}{{ else if .Labels.node }}{{ .Labels.node }}{{ else if .Labels.host }}{{ .Labels.host }}{{ else if .Labels.hostname }}{{ .Labels.hostname }}{{ else if .Labels.ip }}{{ .Labels.ip }}{{ end -}}
 {{- end }}
 
-{{ end }}
-{{ end }}
+{{- define "prom.title" -}}
+{{ template "__subject" . }}{{ end }}
 
-{{ define "__alert_summary" -}}
-{{ range . }}
-{{ if eq .Status "firing" }}🚨{{ else }}✅{{ end }}"> {{ template "__alertinstance" . }}
-{{ end }}
-{{ end }}
-
-{{ define "prom.title" -}}
+{{- define "prom.markdown" }}
 {{ template "__subject" . }}
+
+{{- if eq .Status "firing" }}> 🔥 共 **{{ .Alerts.Firing|len }}** 个告警触发{{ else }}> ✅ 以下 **{{ .Alerts.Resolved|len }}** 个告警已恢复{{ end }}
+
+{{- if gt (.Alerts.Firing|len) 0 }}
+### 🚨 告警明细
+
+{{- range .Alerts.Firing }}
+- **{{ .Labels.alertname }}**（{{ template "__severity" . }}）
+  - 实例：`{{ template "__alert_instance" . }}`
+  - 状态：`{{ .Status | toUpper }}` · 开始：{{ .StartsAt.Format "2006-01-02 15:04:05" }}
+  - 描述：{{ .Annotations.summary }}
+{{- if .Annotations.description }}
+  - 详情：{{ .Annotations.description }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{- if gt (.Alerts.Resolved|len) 0 }}
+### ✅ 恢复明细
+
+{{- range .Alerts.Resolved }}
+- **{{ .Labels.alertname }}**（{{ template "__severity" . }}）
+  - 实例：`{{ template "__alert_instance" . }}`
+  - 恢复：{{ .EndsAt.Format "2006-01-02 15:04:05" }}
+  - 描述：{{ .Annotations.summary }}
+{{- end }}
+{{- end }}
+
+{{- if .ExternalURL }}
+---
+[🔗 在 Alertmanager 中查看]({{ .ExternalURL }}) · 接收时间 {{ .MessageAt.Format "2006-01-02 15:04:05" }}
+{{- end }}
 {{ end }}
 
+{{- define "prom.text" }}
+{{ template "__subject" . }}
 
-{{ define "prom.markdown" }}
-{{ .MessageAt.Format "2006-01-02T15:04:05Z07:00" }}
-#### Summary
+{{- if gt (.Alerts.Firing|len) 0 }}
+Firing:
+{{- range .Alerts.Firing }}
+- [{{ .Labels.alertname }}] {{ template "__alert_instance" . }}: {{ .Annotations.summary }}
+{{- end }}
+{{- end }}
 
-{{ if gt (.Alerts.Firing|len ) 0 }}
-##### 🚨 Firing {{ .Alerts.Firing|len }} alerts
-{{ template "__alert_summary" .Alerts.Firing }}
-{{ end }}
-
-
-{{ if gt (.Alerts.Resolved|len) 0 }}
-##### ✅ Resolved {{ .Alerts.Resolved|len }} alerts
-{{ template "__alert_summary" .Alerts.Resolved }}
-{{ end }}
-
-#### Detail
-
-{{ if gt (.Alerts.Firing|len ) 0 }}
-##### 🚨 Firing {{ .Alerts.Firing|len }} alerts
-{{ template "__alert_list" .Alerts.Firing }}
-{{ end }}
-
-{{ if gt (.Alerts.Resolved|len) 0 }}
-##### ✅ Resolved {{ .Alerts.Resolved|len }} alerts
-{{ template "__alert_list" .Alerts.Resolved }}
-{{ end }}
-
-{{ end }}
-
-{{ define "prom.text" }}
-{{ template "prom.markdown" . }}
+{{- if gt (.Alerts.Resolved|len) 0 }}
+Resolved:
+{{- range .Alerts.Resolved }}
+- [{{ .Labels.alertname }}] {{ template "__alert_instance" . }}: {{ .Annotations.summary }}
+{{- end }}
+{{- end }}
 {{ end }}
