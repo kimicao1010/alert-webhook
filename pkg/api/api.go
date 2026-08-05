@@ -153,7 +153,7 @@ func (c *Controller) send(request *restful.Request, response *restful.Response) 
 	if err != nil {
 		errmsg := fmt.Sprintf("Err: read request body failed, err: %s", err)
 		c.log(errmsg)
-		response.WriteHeaderAndJson(http.StatusBadRequest, errmsg, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusBadRequest, errmsg, restful.MIME_JSON)
 		return
 	}
 
@@ -163,7 +163,7 @@ func (c *Controller) send(request *restful.Request, response *restful.Response) 
 	if err := json.Unmarshal(raw, promMsg); err != nil {
 		errmsg := fmt.Sprintf("Err: unmarshal body failed, err: %s", err)
 		c.log(errmsg)
-		response.WriteHeaderAndJson(http.StatusBadRequest, errmsg, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusBadRequest, errmsg, restful.MIME_JSON)
 		return
 	}
 	promMsg.SetMessageAt().SetSignature(c.signature)
@@ -172,7 +172,7 @@ func (c *Controller) send(request *restful.Request, response *restful.Response) 
 	if channelType == "" {
 		errmsg := "Err: no channel found in path"
 		c.log(errmsg)
-		response.WriteHeaderAndJson(http.StatusBadRequest, errmsg, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusBadRequest, errmsg, restful.MIME_JSON)
 		return
 	}
 
@@ -181,7 +181,7 @@ func (c *Controller) send(request *restful.Request, response *restful.Response) 
 	if err != nil {
 		errmsg := fmt.Sprintf("Err: read channel config failed, %v", err)
 		c.log(errmsg)
-		response.WriteHeaderAndJson(http.StatusInternalServerError, errmsg, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusInternalServerError, errmsg, restful.MIME_JSON)
 		return
 	}
 
@@ -189,7 +189,7 @@ func (c *Controller) send(request *restful.Request, response *restful.Response) 
 	if !exists {
 		errmsg := fmt.Sprintf("Err: not supported channel of (%s)", channelType)
 		c.log(errmsg)
-		response.WriteHeaderAndJson(http.StatusBadRequest, errmsg, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusBadRequest, errmsg, restful.MIME_JSON)
 		return
 	}
 
@@ -199,7 +199,7 @@ func (c *Controller) send(request *restful.Request, response *restful.Response) 
 		c.log(errmsg)
 		// sender 构造失败（如无凭据）也落记录，保留原始调用体便于溯源
 		c.recordSend(channelType, "failure", err.Error(), promMsg, &models.Payload{Raw: string(raw)}, 0)
-		response.WriteHeaderAndJson(http.StatusBadRequest, errmsg, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusBadRequest, errmsg, restful.MIME_JSON)
 		return
 	}
 
@@ -209,7 +209,7 @@ func (c *Controller) send(request *restful.Request, response *restful.Response) 
 		errmsg := fmt.Sprintf("Err: create msg payload failed, %v", err)
 		c.log(errmsg)
 		c.recordSend(channelType, "failure", err.Error(), promMsg, &models.Payload{Raw: string(raw)}, 0)
-		response.WriteHeaderAndJson(http.StatusInternalServerError, errmsg, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusInternalServerError, errmsg, restful.MIME_JSON)
 		return
 	}
 	if c.debug {
@@ -233,7 +233,7 @@ func (c *Controller) send(request *restful.Request, response *restful.Response) 
 		errmsg := fmt.Sprintf("Err: sender send failed, %v", sendErr)
 		c.log(errmsg)
 		c.recordSend(channelType, "failure", sendErr.Error(), promMsg, payload, time.Since(sendStart))
-		response.WriteHeaderAndJson(http.StatusInternalServerError, errmsg, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusInternalServerError, errmsg, restful.MIME_JSON)
 		return
 	}
 

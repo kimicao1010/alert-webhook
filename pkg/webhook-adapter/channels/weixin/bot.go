@@ -91,7 +91,7 @@ func (bot *WeixinGroupBot) UploadFile(filename string, fileReader io.Reader) (me
 	if err != nil {
 		return "", fmt.Errorf("create file writer error, got %v", err)
 	}
-	io.Copy(fileWriter, fileReader)
+	_, _ = io.Copy(fileWriter, fileReader)
 
 	req, err := http.NewRequest("POST", bot.AddrForUpload(), body)
 	if err != nil {

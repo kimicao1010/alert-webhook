@@ -114,14 +114,14 @@ func (bot *FeishuGroupBot) UploadImage(filename string, fileReader io.Reader) (i
 	if err != nil {
 		return "", fmt.Errorf("create form file err")
 	}
-	io.Copy(fileWriter, fileReader)
+	_, _ = io.Copy(fileWriter, fileReader)
 
 	fieldWriter, err := w.CreateFormField("image_type")
 	if err != nil {
 		return "", fmt.Errorf("create field error")
 	}
 
-	fieldWriter.Write([]byte("message")) // message 表示消息图片， avatar 表示头像
+	_, _ = fieldWriter.Write([]byte("message")) // message 表示消息图片， avatar 表示头像
 
 	req, err := http.NewRequest("POST", bot.AddrForUploadImage(), postBody)
 	if err != nil {
@@ -202,27 +202,27 @@ func (bot *FeishuGroupBot) UploadFile(filename string, filetype string, fileRead
 	if err != nil {
 		return "", fmt.Errorf("create field error, got %v", err)
 	}
-	field.Write([]byte(filetype))
+	_, _ = field.Write([]byte(filetype))
 
 	// 带后缀的文件名
 	field, err = w.CreateFormField("file_name")
 	if err != nil {
 		return "", fmt.Errorf("create field error, got %v", err)
 	}
-	field.Write([]byte("filename"))
+	_, _ = field.Write([]byte("filename"))
 
 	// 文件的时长(视频，音频),单位:毫秒
 	field, err = w.CreateFormField("duration")
 	if err != nil {
 		return "", fmt.Errorf("create field error, got %v", err)
 	}
-	field.Write([]byte("3000"))
+	_, _ = field.Write([]byte("3000"))
 
 	fileWriter, err := w.CreateFormFile("file", filename)
 	if err != nil {
 		return "", fmt.Errorf("create file writer error, got %v", err)
 	}
-	io.Copy(fileWriter, fileReader)
+	_, _ = io.Copy(fileWriter, fileReader)
 
 	req, err := http.NewRequest("POST", bot.AddrForUploadFile(), postBody)
 	if err != nil {

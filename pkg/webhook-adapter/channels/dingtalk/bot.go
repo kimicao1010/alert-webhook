@@ -118,7 +118,7 @@ func (bot *DingtalkGroupBot) UploadFile(filename string, fileReader io.Reader) (
 	if err != nil {
 		return "", fmt.Errorf("create file writer error, got %v", err)
 	}
-	io.Copy(fileWriter, fileReader)
+	_, _ = io.Copy(fileWriter, fileReader)
 
 	req, err := http.NewRequest("POST", bot.AddrForUpload(), body)
 	if err != nil {

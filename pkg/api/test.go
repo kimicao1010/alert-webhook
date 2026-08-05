@@ -45,7 +45,7 @@ func (c *Controller) testSend(request *restful.Request, response *restful.Respon
 	if err != nil {
 		errmsg := fmt.Sprintf("Err: read request body failed, err: %s", err)
 		c.log(errmsg)
-		response.WriteHeaderAndJson(http.StatusBadRequest, errmsg, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusBadRequest, errmsg, restful.MIME_JSON)
 		return
 	}
 
@@ -53,13 +53,13 @@ func (c *Controller) testSend(request *restful.Request, response *restful.Respon
 	if err := json.Unmarshal(raw, req); err != nil {
 		errmsg := fmt.Sprintf("Err: unmarshal body failed, err: %s", err)
 		c.log(errmsg)
-		response.WriteHeaderAndJson(http.StatusBadRequest, errmsg, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusBadRequest, errmsg, restful.MIME_JSON)
 		return
 	}
 	if req.Channel == "" {
 		errmsg := "Err: no channel specified"
 		c.log(errmsg)
-		response.WriteHeaderAndJson(http.StatusBadRequest, errmsg, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusBadRequest, errmsg, restful.MIME_JSON)
 		return
 	}
 
@@ -68,7 +68,7 @@ func (c *Controller) testSend(request *restful.Request, response *restful.Respon
 	if err != nil {
 		errmsg := fmt.Sprintf("Err: read channel config failed, %v", err)
 		c.log(errmsg)
-		response.WriteHeaderAndJson(http.StatusInternalServerError, errmsg, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusInternalServerError, errmsg, restful.MIME_JSON)
 		return
 	}
 
@@ -76,7 +76,7 @@ func (c *Controller) testSend(request *restful.Request, response *restful.Respon
 	if !exists {
 		errmsg := fmt.Sprintf("Err: not supported channel of (%s)", req.Channel)
 		c.log(errmsg)
-		response.WriteHeaderAndJson(http.StatusBadRequest, errmsg, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusBadRequest, errmsg, restful.MIME_JSON)
 		return
 	}
 
@@ -86,7 +86,7 @@ func (c *Controller) testSend(request *restful.Request, response *restful.Respon
 		c.log(errmsg)
 		// sender 构造失败（如无凭据）也落记录，保留原始请求体便于溯源
 		c.recordTestSend(req.Channel, "failure", err.Error(), &models.Payload{Raw: string(raw)}, 0)
-		response.WriteHeaderAndJson(http.StatusBadRequest, errmsg, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusBadRequest, errmsg, restful.MIME_JSON)
 		return
 	}
 
@@ -98,7 +98,7 @@ func (c *Controller) testSend(request *restful.Request, response *restful.Respon
 		if err != nil {
 			errmsg := fmt.Sprintf("Err: build payload from template failed, %v", err)
 			c.log(errmsg)
-			response.WriteHeaderAndJson(http.StatusBadRequest, errmsg, restful.MIME_JSON)
+			_ = response.WriteHeaderAndJson(http.StatusBadRequest, errmsg, restful.MIME_JSON)
 			return
 		}
 	} else {
@@ -122,13 +122,13 @@ func (c *Controller) testSend(request *restful.Request, response *restful.Respon
 		c.log(errmsg)
 		c.logger.Warn("test send failed", "channel", req.Channel, "duration_ms", time.Since(start).Milliseconds(), "err", err.Error())
 		c.recordTestSend(req.Channel, "failure", err.Error(), payload, time.Since(start))
-		response.WriteHeaderAndJson(http.StatusInternalServerError, errmsg, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusInternalServerError, errmsg, restful.MIME_JSON)
 		return
 	}
 
 	c.logger.Info("test send succeeded", "channel", req.Channel, "duration_ms", time.Since(start).Milliseconds())
 	c.recordTestSend(req.Channel, "success", "", payload, time.Since(start))
-	response.WriteHeaderAndJson(http.StatusOK, map[string]string{"status": "ok"}, restful.MIME_JSON)
+	_ = response.WriteHeaderAndJson(http.StatusOK, map[string]string{"status": "ok"}, restful.MIME_JSON)
 }
 
 // buildPayloadFromTemplate 用指定模板 + 字段表单构造告警数据，渲染出 title/text/markdown 三段 payload。

@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -54,11 +53,11 @@ func (c *Controller) InstallUI(container *restful.Container) {
 func (c *Controller) serveIndex(request *restful.Request, response *restful.Response) {
 	content, err := static.FS.ReadFile("index.html")
 	if err != nil {
-		response.WriteHeaderAndJson(http.StatusInternalServerError, map[string]string{"error": err.Error()}, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusInternalServerError, map[string]string{"error": err.Error()}, restful.MIME_JSON)
 		return
 	}
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
-	response.Write(content)
+	_, _ = response.Write(content)
 }
 
 // serveStatic 返回 /ui/static/* 下的静态资源（css/js）。
@@ -81,7 +80,7 @@ func (c *Controller) serveStatic(request *restful.Request, response *restful.Res
 	default:
 		response.Header().Set("Content-Type", "application/octet-stream")
 	}
-	response.Write(content)
+	_, _ = response.Write(content)
 }
 
 // requireAuth 校验 Bearer 认证；未通过时写 401 并返回 false。
@@ -106,10 +105,10 @@ func (c *Controller) listChannels(request *restful.Request, response *restful.Re
 	list, err := c.channelStore.List()
 	if err != nil {
 		c.logger.Warn("list channels failed", "err", err.Error())
-		response.WriteHeaderAndJson(http.StatusInternalServerError, map[string]string{"error": err.Error()}, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusInternalServerError, map[string]string{"error": err.Error()}, restful.MIME_JSON)
 		return
 	}
-	response.WriteHeaderAndJson(http.StatusOK, list, restful.MIME_JSON)
+	_ = response.WriteHeaderAndJson(http.StatusOK, list, restful.MIME_JSON)
 }
 
 func (c *Controller) getChannel(request *restful.Request, response *restful.Response) {
@@ -120,10 +119,10 @@ func (c *Controller) getChannel(request *restful.Request, response *restful.Resp
 	cfg, err := c.channelStore.Get(channel)
 	if err != nil {
 		c.logger.Warn("get channel failed", "channel", channel, "err", err.Error())
-		response.WriteHeaderAndJson(http.StatusInternalServerError, map[string]string{"error": err.Error()}, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusInternalServerError, map[string]string{"error": err.Error()}, restful.MIME_JSON)
 		return
 	}
-	response.WriteHeaderAndJson(http.StatusOK, cfg, restful.MIME_JSON)
+	_ = response.WriteHeaderAndJson(http.StatusOK, cfg, restful.MIME_JSON)
 }
 
 func (c *Controller) saveChannel(request *restful.Request, response *restful.Response) {
@@ -133,20 +132,20 @@ func (c *Controller) saveChannel(request *restful.Request, response *restful.Res
 	channel := request.PathParameter("channel")
 	raw, err := io.ReadAll(request.Request.Body)
 	if err != nil {
-		response.WriteHeaderAndJson(http.StatusBadRequest, map[string]string{"error": err.Error()}, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusBadRequest, map[string]string{"error": err.Error()}, restful.MIME_JSON)
 		return
 	}
 	cfg := map[string]string{}
 	if err := json.Unmarshal(raw, &cfg); err != nil {
-		response.WriteHeaderAndJson(http.StatusBadRequest, map[string]string{"error": err.Error()}, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusBadRequest, map[string]string{"error": err.Error()}, restful.MIME_JSON)
 		return
 	}
 	if err := c.channelStore.Save(channel, cfg); err != nil {
 		c.logger.Warn("save channel failed", "channel", channel, "err", err.Error())
-		response.WriteHeaderAndJson(http.StatusBadRequest, map[string]string{"error": err.Error()}, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusBadRequest, map[string]string{"error": err.Error()}, restful.MIME_JSON)
 		return
 	}
-	response.WriteHeaderAndJson(http.StatusOK, map[string]string{"status": "ok"}, restful.MIME_JSON)
+	_ = response.WriteHeaderAndJson(http.StatusOK, map[string]string{"status": "ok"}, restful.MIME_JSON)
 }
 
 func (c *Controller) deleteChannel(request *restful.Request, response *restful.Response) {
@@ -156,10 +155,10 @@ func (c *Controller) deleteChannel(request *restful.Request, response *restful.R
 	channel := request.PathParameter("channel")
 	if err := c.channelStore.Delete(channel); err != nil {
 		c.logger.Warn("delete channel failed", "channel", channel, "err", err.Error())
-		response.WriteHeaderAndJson(http.StatusBadRequest, map[string]string{"error": err.Error()}, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusBadRequest, map[string]string{"error": err.Error()}, restful.MIME_JSON)
 		return
 	}
-	response.WriteHeaderAndJson(http.StatusOK, map[string]string{"status": "ok"}, restful.MIME_JSON)
+	_ = response.WriteHeaderAndJson(http.StatusOK, map[string]string{"status": "ok"}, restful.MIME_JSON)
 }
 
 // ---------- 模板 ----------
@@ -171,10 +170,10 @@ func (c *Controller) listTemplates(request *restful.Request, response *restful.R
 	list, err := c.tmplStore.List()
 	if err != nil {
 		c.logger.Warn("list templates failed", "err", err.Error())
-		response.WriteHeaderAndJson(http.StatusInternalServerError, map[string]string{"error": err.Error()}, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusInternalServerError, map[string]string{"error": err.Error()}, restful.MIME_JSON)
 		return
 	}
-	response.WriteHeaderAndJson(http.StatusOK, list, restful.MIME_JSON)
+	_ = response.WriteHeaderAndJson(http.StatusOK, list, restful.MIME_JSON)
 }
 
 func (c *Controller) getTemplate(request *restful.Request, response *restful.Response) {
@@ -185,10 +184,10 @@ func (c *Controller) getTemplate(request *restful.Request, response *restful.Res
 	content, err := c.tmplStore.Get(name)
 	if err != nil {
 		c.logger.Warn("get template failed", "name", name, "err", err.Error())
-		response.WriteHeaderAndJson(http.StatusNotFound, map[string]string{"error": err.Error()}, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusNotFound, map[string]string{"error": err.Error()}, restful.MIME_JSON)
 		return
 	}
-	response.WriteHeaderAndJson(http.StatusOK, map[string]string{"name": name, "content": content}, restful.MIME_JSON)
+	_ = response.WriteHeaderAndJson(http.StatusOK, map[string]string{"name": name, "content": content}, restful.MIME_JSON)
 }
 
 func (c *Controller) saveTemplate(request *restful.Request, response *restful.Response) {
@@ -198,27 +197,27 @@ func (c *Controller) saveTemplate(request *restful.Request, response *restful.Re
 	name := request.PathParameter("name")
 	raw, err := io.ReadAll(request.Request.Body)
 	if err != nil {
-		response.WriteHeaderAndJson(http.StatusBadRequest, map[string]string{"error": err.Error()}, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusBadRequest, map[string]string{"error": err.Error()}, restful.MIME_JSON)
 		return
 	}
 	body := map[string]string{}
 	if err := json.Unmarshal(raw, &body); err != nil {
-		response.WriteHeaderAndJson(http.StatusBadRequest, map[string]string{"error": err.Error()}, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusBadRequest, map[string]string{"error": err.Error()}, restful.MIME_JSON)
 		return
 	}
 	content := body["content"]
 	if err := c.tmplStore.Save(name, content); err != nil {
 		c.logger.Warn("save template failed", "name", name, "err", err.Error())
-		response.WriteHeaderAndJson(http.StatusBadRequest, map[string]string{"error": err.Error()}, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusBadRequest, map[string]string{"error": err.Error()}, restful.MIME_JSON)
 		return
 	}
 	// 热重载模板存储，使修改立即生效（SQLite / JSON 两模式统一从 store 重载）
 	if err := promModels.LoadTemplatesFromSource(c.tmplStore, ""); err != nil {
 		c.logger.Warn("reload templates failed", "err", err.Error())
-		response.WriteHeaderAndJson(http.StatusOK, map[string]string{"status": "ok", "reload": "failed", "error": err.Error()}, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusOK, map[string]string{"status": "ok", "reload": "failed", "error": err.Error()}, restful.MIME_JSON)
 		return
 	}
-	response.WriteHeaderAndJson(http.StatusOK, map[string]string{"status": "ok"}, restful.MIME_JSON)
+	_ = response.WriteHeaderAndJson(http.StatusOK, map[string]string{"status": "ok"}, restful.MIME_JSON)
 }
 
 func (c *Controller) deleteTemplate(request *restful.Request, response *restful.Response) {
@@ -228,16 +227,16 @@ func (c *Controller) deleteTemplate(request *restful.Request, response *restful.
 	name := request.PathParameter("name")
 	if err := c.tmplStore.Delete(name); err != nil {
 		c.logger.Warn("delete template failed", "name", name, "err", err.Error())
-		response.WriteHeaderAndJson(http.StatusBadRequest, map[string]string{"error": err.Error()}, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusBadRequest, map[string]string{"error": err.Error()}, restful.MIME_JSON)
 		return
 	}
 	// 热重载模板存储（SQLite / JSON 两模式统一从 store 重载）
 	if err := promModels.LoadTemplatesFromSource(c.tmplStore, ""); err != nil {
 		c.logger.Warn("reload templates failed", "err", err.Error())
-		response.WriteHeaderAndJson(http.StatusOK, map[string]string{"status": "ok", "reload": "failed", "error": err.Error()}, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusOK, map[string]string{"status": "ok", "reload": "failed", "error": err.Error()}, restful.MIME_JSON)
 		return
 	}
-	response.WriteHeaderAndJson(http.StatusOK, map[string]string{"status": "ok"}, restful.MIME_JSON)
+	_ = response.WriteHeaderAndJson(http.StatusOK, map[string]string{"status": "ok"}, restful.MIME_JSON)
 }
 
 // previewTemplateRequest 预览请求体。
@@ -255,18 +254,18 @@ func (c *Controller) previewTemplate(request *restful.Request, response *restful
 	}
 	raw, err := io.ReadAll(request.Request.Body)
 	if err != nil {
-		response.WriteHeaderAndJson(http.StatusBadRequest, map[string]string{"error": err.Error()}, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusBadRequest, map[string]string{"error": err.Error()}, restful.MIME_JSON)
 		return
 	}
 	req := &previewTemplateRequest{}
 	if err := json.Unmarshal(raw, req); err != nil {
-		response.WriteHeaderAndJson(http.StatusBadRequest, map[string]string{"error": err.Error()}, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusBadRequest, map[string]string{"error": err.Error()}, restful.MIME_JSON)
 		return
 	}
 
 	// 先整体 Parse 校验语法，语法错误直接报错
 	if err := promModels.ValidateTemplateSyntax(req.Content); err != nil {
-		response.WriteHeaderAndJson(http.StatusBadRequest, map[string]string{"error": err.Error()}, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusBadRequest, map[string]string{"error": err.Error()}, restful.MIME_JSON)
 		return
 	}
 
@@ -279,7 +278,7 @@ func (c *Controller) previewTemplate(request *restful.Request, response *restful
 		}
 		out[section] = rendered
 	}
-	response.WriteHeaderAndJson(http.StatusOK, out, restful.MIME_JSON)
+	_ = response.WriteHeaderAndJson(http.StatusOK, out, restful.MIME_JSON)
 }
 
 // ---------- 发送记录 ----------
@@ -297,30 +296,25 @@ func (c *Controller) querySends(request *restful.Request, response *restful.Resp
 	all, err := c.sendStore.Query(0, 100000, channel, status)
 	if err != nil {
 		c.logger.Warn("query sends failed", "err", err.Error())
-		response.WriteHeaderAndJson(http.StatusInternalServerError, map[string]string{"error": err.Error()}, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusInternalServerError, map[string]string{"error": err.Error()}, restful.MIME_JSON)
 		return
 	}
 	records, err := c.sendStore.Query(offset, limit, channel, status)
 	if err != nil {
 		c.logger.Warn("query sends failed", "err", err.Error())
-		response.WriteHeaderAndJson(http.StatusInternalServerError, map[string]string{"error": err.Error()}, restful.MIME_JSON)
+		_ = response.WriteHeaderAndJson(http.StatusInternalServerError, map[string]string{"error": err.Error()}, restful.MIME_JSON)
 		return
 	}
-	response.WriteHeaderAndJson(http.StatusOK, map[string]interface{}{
+	_ = response.WriteHeaderAndJson(http.StatusOK, map[string]interface{}{
 		"records": records,
 		"total":   len(all),
 	}, restful.MIME_JSON)
 }
 
-// errMsg 构造 JSON 错误响应（供 test.go 等复用）。
-func errMsg(msg string) string {
-	return fmt.Sprintf("Err: %s", msg)
-}
-
 // serverInfo 返回服务端运行信息（实际数据目录、版本），供 UI 侧栏展示。
 // 该端点不要求认证：dataDir/版本属非敏感运行信息，且需保证 UI 在未配置 token 时也能展示。
 func (c *Controller) serverInfo(request *restful.Request, response *restful.Response) {
-	response.WriteHeaderAndJson(http.StatusOK, map[string]string{
+	_ = response.WriteHeaderAndJson(http.StatusOK, map[string]string{
 		"dataDir": c.dataDir,
 		"version": version.Version,
 		"commit":  version.Commit,
