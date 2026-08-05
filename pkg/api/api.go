@@ -18,15 +18,16 @@ import (
 )
 
 type Controller struct {
-	signature    string
-	debug        bool
-	logger       *slog.Logger
-	authToken    string
-	dataDir      string
-	webEnabled   bool
-	channelStore store.ChannelStore
-	tmplStore    store.TemplateStore
-	sendStore    store.SendStore
+	signature       string
+	debug           bool
+	logger          *slog.Logger
+	authToken       string
+	dataDir         string
+	webEnabled      bool
+	channelStore    store.ChannelStore
+	tmplStore       store.TemplateStore
+	sendStore       store.SendStore
+	customTmplStore store.CustomTemplateStore
 }
 
 func NewController(signature string) *Controller {
@@ -58,6 +59,12 @@ func (c *Controller) WithDataDir(dir string) *Controller {
 
 func (c *Controller) WithWebEnabled(enabled bool) *Controller {
 	c.webEnabled = enabled
+	return c
+}
+
+// WithCustomTmplStore 注入自定义模板存储；为 nil 时发送链路保持内置模板行为。
+func (c *Controller) WithCustomTmplStore(s store.CustomTemplateStore) *Controller {
+	c.customTmplStore = s
 	return c
 }
 
@@ -196,7 +203,8 @@ func (c *Controller) send(request *restful.Request, response *restful.Response) 
 		return
 	}
 
-	payload, err := promMsg.ToPayload(channelType, raw)
+	// 自定义模板优先：渠道配置了自定义模板则用字段映射渲染，否则走内置模板
+	payload, err := c.buildPayload(channelType, promMsg, raw)
 	if err != nil {
 		errmsg := fmt.Sprintf("Err: create msg payload failed, %v", err)
 		c.log(errmsg)
@@ -232,6 +240,18 @@ func (c *Controller) send(request *restful.Request, response *restful.Response) 
 	c.recordSend(channelType, "success", "", promMsg, payload, time.Since(sendStart))
 	c.logf("Send succeed: %s\n", request.Request.URL.String())
 	response.WriteHeader(http.StatusNoContent)
+}
+
+// buildPayload 构造发送 payload：渠道有自定义模板时用字段映射渲染，否则用内置模板。
+func (c *Controller) buildPayload(channel string, promMsg *promModels.AlertmanagerWebhookMessage, raw []byte) (*models.Payload, error) {
+	if c.customTmplStore != nil {
+		if ct, err := c.customTmplStore.Get(channel); err != nil {
+			return nil, fmt.Errorf("read custom template failed: %w", err)
+		} else if ct != nil {
+			return promModels.RenderCustomTmpl(ct.Content, ct.FieldMap, raw)
+		}
+	}
+	return promMsg.ToPayload(channel, raw)
 }
 
 // recordSend 将发送结果写入 sendstore（成功/失败均记录），
