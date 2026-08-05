@@ -31,6 +31,12 @@ func (c *Controller) InstallUI(container *restful.Container) {
 	ws.Route(ws.POST("/templates/{name}/preview").To(c.previewTemplate))
 
 	ws.Route(ws.GET("/sends").To(c.querySends))
+	// 自定义模板（注意：preview 必须注册在 {channel} 之前，避免被路径参数吞掉）
+	ws.Route(ws.POST("/custom-templates/preview").To(c.previewCustomTemplate))
+	ws.Route(ws.GET("/custom-templates").To(c.listCustomTemplates))
+	ws.Route(ws.GET("/custom-templates/{channel}").To(c.getCustomTemplate))
+	ws.Route(ws.POST("/custom-templates/{channel}").To(c.saveCustomTemplate))
+	ws.Route(ws.DELETE("/custom-templates/{channel}").To(c.deleteCustomTemplate))
 	ws.Route(ws.POST("/test-send").To(c.testSend))
 	ws.Route(ws.GET("/info").To(c.serverInfo))
 
