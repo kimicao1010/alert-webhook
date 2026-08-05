@@ -212,7 +212,7 @@ func (c *Controller) send(request *restful.Request, response *restful.Response) 
 			fallbackErr, used := c.sendWithFailover(channelType, &models.Payload{Raw: string(raw)})
 			if fallbackErr == nil {
 				c.logger.Info("send succeeded via failover (sender create failed)", "primary", channelType, "used", used)
-				c.recordSend(channelType, "success", "", promMsg, &models.Payload{Raw: string(raw)}, 0)
+				c.recordSend(used, "success", "", promMsg, &models.Payload{Raw: string(raw)}, 0, channelType)
 				response.WriteHeader(http.StatusNoContent)
 				return
 			}
@@ -257,7 +257,8 @@ func (c *Controller) send(request *restful.Request, response *restful.Response) 
 			fallbackErr, used := c.sendWithFailover(channelType, payload)
 			if fallbackErr == nil {
 				c.logger.Info("send succeeded via failover", "primary", channelType, "used", used)
-				c.recordSend(channelType, "success", "", promMsg, payload, time.Since(sendStart))
+				// 记录代发渠道（used），并标记故障转移 + 原始渠道（channelType）
+				c.recordSend(used, "success", "", promMsg, payload, time.Since(sendStart), channelType)
 				response.WriteHeader(http.StatusNoContent)
 				return
 			}
@@ -360,7 +361,7 @@ func (c *Controller) buildPayload(channel string, promMsg *promModels.Alertmanag
 
 // recordSend 将发送结果写入 sendstore（成功/失败均记录），
 // 并附带发送内容快照（原始调用体 + 渲染后的 title/text/markdown），便于溯源与模板调试。
-func (c *Controller) recordSend(channel string, status string, errMsg string, msg *promModels.AlertmanagerWebhookMessage, payload *models.Payload, duration time.Duration) {
+func (c *Controller) recordSend(channel string, status string, errMsg string, msg *promModels.AlertmanagerWebhookMessage, payload *models.Payload, duration time.Duration, failoverFrom ...string) {
 	if c.sendStore == nil {
 		return
 	}
@@ -372,6 +373,10 @@ func (c *Controller) recordSend(channel string, status string, errMsg string, ms
 		Error:      errMsg,
 		AlertCount: len(msg.Alerts),
 		Duration:   duration.Milliseconds(),
+	}
+	if len(failoverFrom) > 0 && failoverFrom[0] != "" {
+		rec.Failover = true
+		rec.FailoverFrom = failoverFrom[0]
 	}
 	if payload != nil {
 		rec.Raw = payload.Raw

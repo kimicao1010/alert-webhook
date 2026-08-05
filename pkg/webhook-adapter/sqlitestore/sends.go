@@ -30,10 +30,11 @@ func (v *SendView) Append(r store.SendRecord) error {
 	defer func() { _ = tx.Rollback() }()
 
 	if _, err := tx.Exec(
-		`INSERT INTO sends(timestamp, channel, kind, status, error, alert_count, duration_ms, raw, title, text, markdown)
-		 VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
+		`INSERT INTO sends(timestamp, channel, kind, status, error, alert_count, duration_ms, raw, title, text, markdown, failover, failover_from)
+		 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		r.Timestamp, r.Channel, r.Kind, r.Status, r.Error,
 		r.AlertCount, r.Duration, r.Raw, r.Title, r.Text, r.Markdown,
+		failoverBool(r.Failover), r.FailoverFrom,
 	); err != nil {
 		return err
 	}
@@ -69,7 +70,7 @@ func (v *SendView) Query(offset, limit int, channel, status string) ([]store.Sen
 	if offset < 0 {
 		offset = 0
 	}
-	query := `SELECT timestamp, channel, kind, status, error, alert_count, duration_ms, raw, title, text, markdown
+	query := `SELECT timestamp, channel, kind, status, error, alert_count, duration_ms, raw, title, text, markdown, failover, failover_from
 		FROM sends` + where + ` ORDER BY id DESC LIMIT ? OFFSET ?`
 	args = append(args, limit, offset)
 
@@ -81,11 +82,21 @@ func (v *SendView) Query(offset, limit int, channel, status string) ([]store.Sen
 	res := []store.SendRecord{}
 	for rows.Next() {
 		var r store.SendRecord
+		var failoverInt int
 		if err := rows.Scan(&r.Timestamp, &r.Channel, &r.Kind, &r.Status, &r.Error,
-			&r.AlertCount, &r.Duration, &r.Raw, &r.Title, &r.Text, &r.Markdown); err != nil {
+			&r.AlertCount, &r.Duration, &r.Raw, &r.Title, &r.Text, &r.Markdown, &failoverInt, &r.FailoverFrom); err != nil {
 			return nil, err
 		}
+		r.Failover = failoverInt != 0
 		res = append(res, r)
 	}
 	return res, rows.Err()
+}
+
+// failoverBool 将布尔转换为 SQLite 整数（1/0）。
+func failoverBool(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }

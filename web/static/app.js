@@ -588,9 +588,12 @@ function renderSends() {
   } else {
     tbody.innerHTML = records.map((r, i) => {
       const pill = r.status === 'success' ? '<span class="pill succ">成功</span>' : '<span class="pill fail">失败</span>';
+      const failTag = r.failover
+        ? `<span class="failover-tag" title="主渠道 ${esc(r.failoverFrom || '')} 发送失败，由本渠道代发">🔄 代发（原 ${esc(r.failoverFrom || '?')}）</span>`
+        : '';
       return `<tr data-idx="${i}">
         <td class="time">${fmtTime(r.timestamp)}</td>
-        <td><span class="chan-tag">${esc(r.channel)}</span>${r.kind === 'test' ? ' <span class="pill" style="background:var(--warn-bg);color:var(--warn)">测试</span>' : ''}</td>
+        <td><span class="chan-tag">${esc(r.channel)}</span>${r.kind === 'test' ? ' <span class="pill" style="background:var(--warn-bg);color:var(--warn)">测试</span>' : ''}${failTag}</td>
         <td>${pill}</td>
         <td>${r.alertCount != null ? r.alertCount : '—'}</td>
         <td class="time">${r.durationMs != null ? r.durationMs + 'ms' : '—'}</td>
@@ -605,6 +608,7 @@ function renderSends() {
             <div class="detail-item"><div class="dk">状态</div><div class="dv">${r.status}</div></div>
             <div class="detail-item"><div class="dk">触发时间</div><div class="dv">${fmtTime(r.timestamp)}</div></div>
           </div>
+          ${r.failover ? `<div class="detail-block" style="border-color:var(--warn);background:var(--warn-bg)"><div class="db-t" style="color:var(--warn)">⚠️ 故障转移代发</div><pre style="color:var(--warn)">原渠道 ${esc(r.failoverFrom || '?')} 发送失败，本消息由 ${esc(r.channel)} 代发</pre></div>` : ''}
           <div class="detail-block"><div class="db-t">告警数</div><pre>${r.alertCount != null ? r.alertCount : '—'}</pre></div>
           ${r.error ? `<div class="detail-block"><div class="db-t">错误信息</div><pre class="err">${esc(r.error)}</pre></div>` : ''}
           ${r.title ? `<div class="detail-block"><div class="db-t">标题 (title)</div><pre>${esc(r.title)}</pre></div>` : ''}

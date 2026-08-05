@@ -10,6 +10,7 @@ package sqlitestore
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"sync"
 
 	_ "modernc.org/sqlite" // register sqlite driver
@@ -66,7 +67,9 @@ func (s *Store) migrate() error {
 			raw         TEXT NOT NULL DEFAULT '',
 			title       TEXT NOT NULL DEFAULT '',
 			text        TEXT NOT NULL DEFAULT '',
-			markdown    TEXT NOT NULL DEFAULT ''
+			markdown    TEXT NOT NULL DEFAULT '',
+			failover       INTEGER NOT NULL DEFAULT 0,
+			failover_from  TEXT NOT NULL DEFAULT ''
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_sends_timestamp ON sends(timestamp DESC)`,
 		`CREATE INDEX IF NOT EXISTS idx_sends_channel ON sends(channel)`,
@@ -74,6 +77,16 @@ func (s *Store) migrate() error {
 	for _, stmt := range stmts {
 		if _, err := s.db.Exec(stmt); err != nil {
 			return fmt.Errorf("migrate failed: %w", err)
+		}
+	}
+	// 兼容旧库：sends 表缺 failover 列时补列（列已存在时忽略 duplicate column 错误）
+	alters := []string{
+		`ALTER TABLE sends ADD COLUMN failover INTEGER NOT NULL DEFAULT 0`,
+		`ALTER TABLE sends ADD COLUMN failover_from TEXT NOT NULL DEFAULT ''`,
+	}
+	for _, stmt := range alters {
+		if _, err := s.db.Exec(stmt); err != nil && !strings.Contains(err.Error(), "duplicate column") {
+			return fmt.Errorf("migrate alter failed: %w", err)
 		}
 	}
 	return nil

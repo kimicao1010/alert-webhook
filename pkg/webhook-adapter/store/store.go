@@ -52,6 +52,10 @@ type SendRecord struct {
 	Text string `json:"text,omitempty"`
 	// Markdown 渲染后的 Markdown 内容（prom.markdown 段）。
 	Markdown string `json:"markdown,omitempty"`
+	// Failover 是否为故障转移代发（主渠道失败后由备用渠道发出）。
+	Failover bool `json:"failover,omitempty"`
+	// FailoverFrom 故障转移的原始渠道（主渠道）；代发记录中必填。
+	FailoverFrom string `json:"failoverFrom,omitempty"`
 }
 
 // SendStore 发送记录存储。
