@@ -6,13 +6,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 
 	restful "github.com/emicklei/go-restful/v3"
 
 	"github.com/kimicao1010/alert-webhook/pkg/api"
 	"github.com/kimicao1010/alert-webhook/pkg/models"
-	"github.com/kimicao1010/alert-webhook/pkg/models/templates"
 	"github.com/kimicao1010/alert-webhook/pkg/webhook-adapter/channelstore"
 	"github.com/kimicao1010/alert-webhook/pkg/webhook-adapter/customtmplstore"
 	"github.com/kimicao1010/alert-webhook/pkg/webhook-adapter/sendstore"
@@ -26,7 +24,6 @@ type AppOptions struct {
 	TmplDir     string
 	TmplName    string
 	TmplDefault string
-	TmplLang    string
 	LogLevel    string
 	LogFormat   string
 	AuthToken   string
@@ -51,15 +48,7 @@ func (o *AppOptions) Run() error {
 		panic("fatal")
 	}
 
-	// If using builtin templates (o.TmplDir == ""), then we must check whether or not the specified lang is supported.
-	if o.TmplLang != "" && o.TmplDir == "" {
-		if _, exists := templates.DefaultTmplByLang[o.TmplLang]; !exists {
-			return fmt.Errorf("the builtin templates does not support specified lang (%s), builtin supported langs: (%s)", o.TmplLang, strings.Join(templates.DefaultSupportedLangs(), ","))
-		}
-		if err := models.LoadDefaultTemplate(o.TmplLang); err != nil {
-			return fmt.Errorf("load default template for lang (%s) failed, err: %s", o.TmplLang, err)
-		}
-	}
+	// 默认模板已由 models 包 init() 加载（全渠道共用一套），此处无需重复加载。
 
 	if o.TmplDir == "" && (o.TmplName != "" || o.TmplDefault != "") {
 		fmt.Println("Warning, there is no meaning to specify --tmpl-name or --tmpl-default option without specify --tmpl-dir option, just ignored.")
@@ -75,7 +64,7 @@ func (o *AppOptions) Run() error {
 			o.TmplDir = filepath.Join(filepath.Dir(execFile), o.TmplDir)
 		}
 
-		if err := models.LoadTemplate(o.TmplDir, o.TmplName, o.TmplDefault, o.TmplLang); err != nil {
+		if err := models.LoadTemplate(o.TmplDir, o.TmplName, o.TmplDefault); err != nil {
 			msg := fmt.Sprintf("Load templates from dir (%s) failed, err: %s", o.TmplDir, err)
 			return errors.New(msg)
 		}

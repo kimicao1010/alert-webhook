@@ -45,7 +45,6 @@ func NewRootCommand() *cobra.Command {
 	rootCmd.Flags().StringVarP(&o.TmplDir, "tmpl-dir", "d", "", "the tmpl dir")
 	rootCmd.Flags().StringVarP(&o.TmplName, "tmpl-name", "t", "", "the tmpl name")
 	rootCmd.Flags().StringVarP(&o.TmplDefault, "tmpl-default", "n", "", "the default tmpl name")
-	rootCmd.Flags().StringVarP(&o.TmplLang, "tmpl-lang", "", "", "the language for template filename")
 	rootCmd.Flags().StringVarP(&o.LogLevel, "log-level", "", "info", "log level: debug/info/warn/error")
 	rootCmd.Flags().StringVarP(&o.LogFormat, "log-format", "", "text", "log format: text/json")
 	rootCmd.Flags().StringVarP(&o.AuthToken, "auth-token", "", "", "shared bearer token for request authentication (empty = disabled)")
