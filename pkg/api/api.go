@@ -28,6 +28,8 @@ type Controller struct {
 	tmplStore       store.TemplateStore
 	sendStore       store.SendStore
 	customTmplStore store.CustomTemplateStore
+	// failoverDisabled 为 true 时关闭渠道故障转移（主渠道失败不做备用渠道重试）。
+	failoverDisabled bool
 }
 
 func NewController(signature string) *Controller {
@@ -59,6 +61,12 @@ func (c *Controller) WithDataDir(dir string) *Controller {
 
 func (c *Controller) WithWebEnabled(enabled bool) *Controller {
 	c.webEnabled = enabled
+	return c
+}
+
+// WithFailoverDisabled 设置是否关闭渠道故障转移（默认 false=启用）。
+func (c *Controller) WithFailoverDisabled(disabled bool) *Controller {
+	c.failoverDisabled = disabled
 	return c
 }
 

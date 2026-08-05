@@ -36,6 +36,8 @@ type AppOptions struct {
 	UseDataDir bool
 	// SQLitePath 覆盖 SQLite 库文件默认路径（空则使用 DataDir/adapter.db）。
 	SQLitePath string
+	// FailoverDisabled 为 true 时关闭渠道故障转移（主渠道发送失败不做备用渠道重试）。
+	FailoverDisabled bool
 }
 
 func NewAppOptions() *AppOptions {
@@ -99,6 +101,7 @@ func (o *AppOptions) Run() error {
 	controller.WithAuthToken(o.AuthToken)
 	controller.WithDataDir(o.DataDir)
 	controller.WithWebEnabled(o.WebEnabled)
+	controller.WithFailoverDisabled(o.FailoverDisabled)
 	if o.UseDataDir {
 		// 调试模式：JSON 数据目录存储（旧实现，不导入也不写入 SQLite）
 		controller.WithChannelStore(channelstore.NewJSONStore(filepath.Join(o.DataDir, "channels")))
