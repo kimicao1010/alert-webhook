@@ -76,14 +76,14 @@ func (m *mockSender) Send(p *models.Payload) error {
 	return nil
 }
 
-func (m *mockSender) SendMsg(msg interface{}) error { return nil }
+func (m *mockSender) SendMsg(msg interface{}) error                  { return nil }
 func (m *mockSender) SendMsgT(msgType string, msg interface{}) error { return nil }
 
 // failSender 永远失败。
 type failSender struct{ calls int }
 
-func (m *failSender) Send(p *models.Payload) error { m.calls++; return errors.New("always fail") }
-func (m *failSender) SendMsg(msg interface{}) error { return nil }
+func (m *failSender) Send(p *models.Payload) error                   { m.calls++; return errors.New("always fail") }
+func (m *failSender) SendMsg(msg interface{}) error                  { return nil }
 func (m *failSender) SendMsgT(msgType string, msg interface{}) error { return nil }
 
 // ---- 测试装配 ----
