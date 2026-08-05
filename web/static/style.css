@@ -70,6 +70,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:13p
 .chan .cd{font-size:11px;color:var(--faint);margin-top:2px}
 .chan .badge{font-size:10px;padding:1px 7px;border-radius:10px;font-weight:600}
 .badge.green{background:var(--ok-bg);color:var(--ok)}
+.badge.blue{background:var(--accent-bg);color:var(--accent)}
 .badge.gray{background:var(--panel2);color:var(--faint);border:1px solid var(--border)}
 .chan.active{border-color:var(--accent);background:var(--accent-bg)}
 .cfg-form{display:flex;flex-direction:column;gap:14px}

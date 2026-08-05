@@ -11,6 +11,7 @@ const state = {
   token: localStorage.getItem('awh-token') || '',
   tab: 'channels',
   channels: [],
+  ctChannels: [],
   curChannel: null,
   templates: [],
   curTmpl: null,
@@ -153,8 +154,12 @@ document.querySelectorAll('.nav-item').forEach((n) => n.addEventListener('click'
 
 async function loadChannels() {
   try {
-    const list = await api('/api/channels');
-    state.channels = Array.isArray(list) ? list : [];
+    const [channels, customTmpls] = await Promise.all([
+      api('/api/channels'),
+      api('/api/custom-templates'),
+    ]);
+    state.channels = Array.isArray(channels) ? channels : [];
+    state.ctChannels = Array.isArray(customTmpls) ? customTmpls : [];
     renderChannelList();
   } catch (e) { /* 401 已提示 */ }
 }
@@ -172,9 +177,13 @@ function renderChannelList() {
   box.innerHTML = ordered.map((ch) => {
     const meta = CHANNEL_META[ch];
     const isCfg = configured.has(ch);
+    const hasCt = state.ctChannels.includes(ch);
+    const tmplBadge = hasCt
+      ? '<span class="badge blue" title="已配置自定义模板（替换内置模板）">自定义</span>'
+      : '<span class="badge gray" title="使用内置模板">内置模板</span>';
     return `<div class="chan ${ch === state.curChannel ? 'active' : ''}" data-channel="${esc(ch)}">
       <div class="top"><span class="cn">${meta ? esc(meta.name) : esc(ch)}</span>
-      <span class="badge ${isCfg ? 'green' : 'gray'}">${isCfg ? '已配置' : '未配置'}</span></div>
+      <span class="badge ${isCfg ? 'green' : 'gray'}">${isCfg ? '已配置' : '未配置'}</span>${tmplBadge}</div>
       <div class="cd">${ch}${meta ? ' · ' + esc(meta.desc) : ''}</div>
     </div>`;
   }).join('');
