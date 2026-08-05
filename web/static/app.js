@@ -971,9 +971,31 @@ function defaultVarName(path, existing) {
 }
 function addFieldMapFromPath(path) {
   const existing = ctFieldMap.map((r) => r.name);
-  ctFieldMap.push({ name: defaultVarName(path, existing), path });
+  const name = defaultVarName(path, existing);
+  ctFieldMap.push({ name, path });
   renderCtFieldMap();
+  insertCustomRef(name);   // 同步在模板内容区插入 {{ .Custom.name }} 引用
   scheduleCtPreview();
+}
+
+// insertCustomRef：在模板内容编辑器插入 {{ .Custom.变量名 }} 引用。
+// prom.text 段为空则填入；非空则追加到段内 {{ end }} 前；无段则追加编辑器末尾。
+function insertCustomRef(name) {
+  const ed = $('ct-editor');
+  const ref = `{{ .Custom.${name} }}`;
+  const text = ed.value;
+  const m = text.match(/\{\{ define "prom\.text" \}\}([\s\S]*?)\{\{ end \}\}/);
+  let newText;
+  if (m && m[1].trim() === '') {
+    newText = text.replace(m[0], `{{ define "prom.text" }}${ref}{{ end }}`);
+  } else if (m) {
+    newText = text.replace(m[0], m[0].replace(/\{\{ end \}\}/, `${ref}{{ end }}`));
+  } else {
+    newText = text + (text ? '\n' : '') + ref;
+  }
+  ed.value = newText;
+  ed.dispatchEvent(new Event('input')); // 触发预览
+  toast(`已插入 ${ref}，可拖到对应段落`);
 }
 async function doCtPreview() {
   const content = $('ct-editor').value;
